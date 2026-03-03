@@ -154,19 +154,15 @@ class ReviewModal extends Modal {
 
 	async updateContent(newCard: ThoughtCard) {
 		this.card = newCard;
-		const tempFile = this.app.vault.getAbstractFileByPath(
-			normalizePath(this.tempFilePath),
-		);
-		if (tempFile instanceof TFile) {
-			await this.app.vault.modify(tempFile, this.card.content);
-			if (this.titleElement)
-				this.titleElement.setText(`🗓 ${this.card.timestamp}`);
 
-			const view = this.activeLeaf?.view as MarkdownView;
-			if (view) {
-				view.editor.setValue(this.card.content);
-				this.setupEditorBehavior(view);
-			}
+		// 不需要操作文件，直接更新编辑器
+		if (this.titleElement)
+			this.titleElement.setText(`🗓 ${this.card.timestamp}`);
+
+		const view = this.activeLeaf?.view as MarkdownView;
+		if (view) {
+			view.editor.setValue(this.card.content); // 直接设置编辑器内容
+			this.setupEditorBehavior(view);
 		}
 	}
 
@@ -176,7 +172,6 @@ class ReviewModal extends Modal {
 
 		const tempFile = await this.ensureTempFile();
 		if (!tempFile) return;
-		await this.app.vault.modify(tempFile, this.card.content);
 
 		this.modalEl.addClass("fleeting-glass-modal", "fleeting-minimal-modal");
 		Object.assign(this.modalEl.style, {
@@ -218,6 +213,7 @@ class ReviewModal extends Modal {
 			editorWrapper.appendChild((this.activeLeaf as any).containerEl);
 
 			const view = this.activeLeaf.view as MarkdownView;
+			view.editor.setValue(this.card.content);
 			this.setupEditorBehavior(view);
 
 			const footer = contentEl.createDiv({
@@ -257,7 +253,9 @@ class ReviewModal extends Modal {
 	private setupEditorBehavior(view: MarkdownView) {
 		setTimeout(() => {
 			// 1. 暴力聚焦：直接找 DOM 元素
-			const cmContent = view.containerEl.querySelector(".cm-content") as HTMLElement;
+			const cmContent = view.containerEl.querySelector(
+				".cm-content",
+			) as HTMLElement;
 			if (cmContent) {
 				cmContent.focus();
 			} else {
@@ -281,9 +279,13 @@ class ReviewModal extends Modal {
 					};
 
 					// 依次触发 keydown 和 keypress，这是模拟输入最稳妥的组合
-					target.dispatchEvent(new KeyboardEvent("keydown", keyEventOpts));
-					target.dispatchEvent(new KeyboardEvent("keypress", keyEventOpts));
-					
+					target.dispatchEvent(
+						new KeyboardEvent("keydown", keyEventOpts),
+					);
+					target.dispatchEvent(
+						new KeyboardEvent("keypress", keyEventOpts),
+					);
+
 					this.vimTimeout = null;
 				}, 1); // 严格满足 1ms 要求
 			}

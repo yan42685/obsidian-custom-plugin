@@ -75,9 +75,6 @@ export class FleetingModal extends Modal {
 		const tempFile = await this.ensureTempFile();
 		if (!tempFile) return;
 
-		// 每次打开先清空缓冲区
-		await this.app.vault.modify(tempFile, "");
-
 		this.modalEl.addClass("fleeting-glass-modal");
 		this.modalEl.addClass("fleeting-minimal-modal");
 
@@ -149,8 +146,11 @@ export class FleetingModal extends Modal {
 			true,
 		);
 
-		setTimeout(() => {
+		requestAnimationFrame(() => {
 			view.editor.focus();
+
+			// 每次打开先清空缓冲区
+			view.editor.setValue("");
 
 			// 恢复完整的 Vim 插入模式逻辑
 			// @ts-ignore
@@ -177,7 +177,7 @@ export class FleetingModal extends Modal {
 			view.editor.setCursor({ line: 0, ch: 0 });
 			// 触发 AnyBlock 扫描渲染
 			this.app.workspace.trigger("layout-change");
-		}, 250);
+		});
 	}
 	async onClose() {
 		// 销毁叶子，防止它留在后台或干扰布局
@@ -186,13 +186,6 @@ export class FleetingModal extends Modal {
 			this.activeLeaf = null;
 		}
 
-		// 关闭后清空缓冲区
-		const tempFile = this.app.vault.getAbstractFileByPath(
-			normalizePath(this.tempFilePath),
-		);
-		if (tempFile instanceof TFile) {
-			await this.app.vault.modify(tempFile, "");
-		}
 		this.contentEl.empty();
 	}
 
