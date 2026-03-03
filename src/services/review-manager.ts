@@ -109,7 +109,7 @@ export class ReviewManager {
 					startLine,
 					endLine: j,
 					timestamp,
-					content: contentLines.join("\n").trim(),
+					content: contentLines.join("\n"),
 				});
 				i = j - 1;
 			}
