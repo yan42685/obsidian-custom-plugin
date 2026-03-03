@@ -14,14 +14,17 @@ import {
 	MyPluginSettings,
 	MyPluginSettingTab,
 } from "./settings";
+import { ReviewManager } from "services/review-manager";
 
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
+	reviewManager: ReviewManager;
 
 	async onload() {
 		await this.loadSettings();
 
 		this.addSettingTab(new MyPluginSettingTab(this.app, this));
+		this.reviewManager = new ReviewManager(this.app, this.settings);
 
 		// 注册命令：你可以通过快捷键或命令面板 (Ctrl+P) 唤起
 		this.addCommand({
@@ -30,6 +33,12 @@ export default class MyPlugin extends Plugin {
 			callback: () => {
 				new FleetingModal(this.app, this.settings).open();
 			},
+		});
+
+		this.addCommand({
+			id: "review-fleeting-thoughts",
+			name: "Review Fleeting Thoughts",
+			callback: () => this.reviewManager.startReview(),
 		});
 
 		console.log("Custom Plugin loaded successfully.");
