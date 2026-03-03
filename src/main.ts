@@ -68,7 +68,10 @@ export class FleetingModal extends Modal {
 
 		await this.app.vault.modify(tempFile, "");
 
+		// --- 关键：添加 CSS 类名 ---
+		this.modalEl.addClass("fleeting-glass-modal");
 		this.modalEl.addClass("fleeting-minimal-modal");
+
 		const closeBtn = this.modalEl.querySelector(
 			".modal-close-button",
 		) as HTMLElement;
@@ -79,11 +82,13 @@ export class FleetingModal extends Modal {
 		this.modalEl.style.display = "flex";
 		this.modalEl.style.flexDirection = "column";
 
-		contentEl.createEl("h2", {
+		// --- 关键：调整标题结构以适配 CSS ---
+		const header = contentEl.createDiv({
+			cls: "fleeting-header-container",
+		});
+		header.createEl("h2", {
 			text: "✍️ Fleeting Thoughts",
-			attr: {
-				style: "margin: 0 0 15px 0; font-size: 1.2em; color: var(--interactive-accent);",
-			},
+			cls: "fleeting-title",
 		});
 
 		const editorWrapper = contentEl.createDiv({
@@ -91,12 +96,10 @@ export class FleetingModal extends Modal {
 			attr: { style: "flex: 1; overflow: hidden;" },
 		});
 
-		// --- 彻底修复点：使用底层 API 创建一个不挂载到工作区的 Leaf ---
 		// @ts-ignore
-		const leaf = new (WorkspaceLeaf as any)(this.app); // 直接 new 而不是通过 workspace 获取
+		const leaf = new (WorkspaceLeaf as any)(this.app);
 		this.activeLeaf = leaf;
 
-		// 关键：在打开文件时明确指定不要 active，也不要记录历史
 		await leaf.openFile(tempFile, {
 			active: false,
 			state: { mode: "source" },
@@ -107,7 +110,6 @@ export class FleetingModal extends Modal {
 
 		const view = leaf.view as MarkdownView;
 
-		// 强制 Live Preview 模式
 		if (view.getMode() !== "source") {
 			await view.setState(
 				{ ...view.getState(), mode: "source" },
@@ -115,7 +117,6 @@ export class FleetingModal extends Modal {
 			);
 		}
 
-		// 键盘拦截逻辑保持不变...
 		this.modalEl.addEventListener(
 			"keydown",
 			async (e: KeyboardEvent) => {
@@ -132,10 +133,35 @@ export class FleetingModal extends Modal {
 			true,
 		);
 
-		// 仅针对我们这个游离 leaf 强制聚焦，而不要去触发 workspace 的 setActiveLeaf
+		// 延迟聚焦：建议 200ms 以上，1ms 太快可能导致 DOM 没渲染完，光标出不来
 		setTimeout(() => {
 			view.editor.focus();
-		}, 150);
+
+			// @ts-ignore
+			const isVimEnabled = this.app.vault.getConfig("vimMode");
+
+			if (isVimEnabled) {
+				const cmContent = editorWrapper.querySelector(".cm-content");
+				if (cmContent) {
+					const keyEvent = new KeyboardEvent("keydown", {
+						key: "i",
+						keyCode: 73,
+						code: "KeyI",
+						which: 73,
+						bubbles: true,
+						cancelable: true,
+					});
+					cmContent.dispatchEvent(keyEvent);
+
+					if (view.editor.getValue() === "i") {
+						view.editor.setValue("");
+					}
+				}
+			}
+
+			const lineCount = view.editor.lineCount();
+			view.editor.setCursor({ line: lineCount, ch: 0 });
+		}, 1); // 增加到 250ms 保证稳定性
 	}
 	async onClose() {
 		// 销毁叶子，防止它留在后台或干扰布局

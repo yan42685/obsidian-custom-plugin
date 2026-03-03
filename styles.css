@@ -20,55 +20,80 @@ If your plugin does not need CSS, delete this file.
 /* ==========================================================================
    Fleeting Thoughts 极简插件样式
    ========================================================================== */
-
-/* 1. 隐藏编辑器顶部的所有 UI 元素 (文件名、导航、操作按钮) */
-.fleeting-editor-wrapper .view-header,
-.fleeting-editor-wrapper .view-actions,
-.fleeting-editor-wrapper .inline-title,
-.fleeting-editor-wrapper .metadata-container {
-    display: none !important;
+/* 1. 弹窗基础：取消动画，修正内边距 */
+.fleeting-glass-modal {
+    background: rgba(var(--background-primary-rgb), 0.78) !important;
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(var(--interactive-accent-rgb), 0.25);
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    border-radius: 12px !important;
+    
+    /* 强行对齐 */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) !important;
 }
 
-/* 2. 隐藏编辑器底部的状态栏 (字数统计等) */
-.fleeting-editor-wrapper .view-footer {
-    display: none !important;
+/* 移除 Obsidian 默认给 modal-content 加的内边距，让标题上移 */
+.fleeting-glass-modal .modal-content {
+    padding: 3px 20px !important; /* 你可以根据喜好调小 15px */
+    margin: 0 !important;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
-/* 3. 彻底移除所有边框和背景，确保视觉上只有文字 */
+/* 2. 标题美化：紧贴左上 */
+.fleeting-header-container {
+    border-bottom: 1px solid var(--background-modifier-border);
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+}
+
+.fleeting-title {
+    margin: 0 !important;
+    font-size: 1.2em !important;
+    font-weight: 600;
+    color: var(--interactive-accent);
+}
+
+/* 3. 滚动条终极方案：内容溢出前彻底隐藏 */
+/* 针对所有嵌套层级强制隐藏 */
+.fleeting-editor-wrapper,
 .fleeting-editor-wrapper .workspace-leaf,
 .fleeting-editor-wrapper .workspace-leaf-content,
-.fleeting-editor-wrapper .view-content,
-.fleeting-editor-wrapper .markdown-source-view.mod-cm6 {
-    background-color: transparent !important;
-    border: none !important;
-    padding: 0 !important;
+.fleeting-editor-wrapper .view-content {
+    overflow: hidden !important;
 }
 
-/* 4. 优化输入区域的内边距，让文字离标题有一点呼吸感 */
-.fleeting-editor-wrapper .markdown-source-view.mod-cm6 .cm-content {
-    padding-top: 10px !important;
-    padding-left: 5px !important;
-    padding-right: 5px !important;
-    line-height: 1.6;
+/* 针对 CodeMirror 核心滚动区域 */
+.fleeting-editor-wrapper .cm-scroller {
+    overflow: auto !important; /* 关键：auto 表示按需显示 */
+    scrollbar-width: none !important; /* Firefox 隐藏 */
 }
 
-/* 5. 确保编辑器填满 Modal 剩余空间 */
-.fleeting-editor-wrapper .cm-editor {
-    height: 100% !important;
+/* 隐藏轨道，只有内容溢出且滚动时才显示细线 */
+.fleeting-editor-wrapper .cm-scroller::-webkit-scrollbar {
+    width: 3px !important;
+    background: transparent !important;
 }
 
-/* 6. 隐藏 Modal 默认的右上角关闭按钮 (X) */
-.fleeting-minimal-modal .modal-close-button {
+/* 只有当鼠标悬停且内容溢出时才显示出细小的滑块 */
+.fleeting-editor-wrapper .cm-scroller::-webkit-scrollbar-thumb {
+    background-color: transparent; 
+}
+
+.fleeting-editor-wrapper:hover .cm-scroller::-webkit-scrollbar-thumb {
+    background-color: rgba(var(--interactive-accent-rgb), 0.3);
+    border-radius: 10px;
+}
+
+/* 4. 环境清理 (隐藏文件名、页脚等) */
+.fleeting-editor-wrapper .view-header,
+.fleeting-editor-wrapper .inline-title,
+.fleeting-editor-wrapper .view-footer,
+.fleeting-editor-wrapper .metadata-container {
     display: none !important;
-}
-
-/* 7. (可选) 增加光标的厚度，使其在极简界面中更显眼 */
-.fleeting-editor-wrapper .cm-cursor {
-    border-left: 2px solid var(--interactive-accent) !important;
-}
-
-/* 8. 针对 Callout 预览的微调 (如果存入笔记后立即查看) */
-.markdown-rendered blockquote.callout[data-callout="cite"] {
-    margin-top: 10px;
-    margin-bottom: 10px;
 }
