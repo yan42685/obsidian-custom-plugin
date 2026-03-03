@@ -6,6 +6,7 @@ import {
 import { FleetingModal } from "services/fleeting-thoughts/input-modal";
 import { ReviewManager } from "services/fleeting-thoughts/review-manager";
 import { HandyUtilities } from "services/handy-utilities/handy-utilities";
+import { MarkmapManager } from "services/startup-scripts/startsup-scripts";
 import {
 	DEFAULT_SETTINGS,
 	MyPluginSettings,
@@ -22,6 +23,7 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new MyPluginSettingTab(this.app, this));
 		this.reviewManager = new ReviewManager(this.app, this.settings);
 		new HandyUtilities(this).registerAllCommands();
+		new MarkmapManager();
 
 		this.addCommand({
 			id: "input-fleeting-thoughts",
