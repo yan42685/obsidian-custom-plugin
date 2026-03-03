@@ -188,7 +188,7 @@ class ReviewModal extends Modal {
 			cls: "fleeting-title",
 		});
 		header.createEl("span", {
-			text: "Ctrl+J 下一个 | Ctrl+K 上一个",
+			text: "Ctrl+J Next | Ctrl+K Previous",
 			attr: { style: "font-size: 0.75em; color: var(--text-muted);" },
 		});
 

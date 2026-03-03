@@ -22,7 +22,7 @@ If your plugin does not need CSS, delete this file.
    ========================================================================== */
 /* 1. 弹窗基础：取消动画，修正内边距 */
 .fleeting-glass-modal {
-    background: rgba(var(--background-primary-rgb), 0.78) !important;
+    background: rgba(var(--background-primary-rgb), 0.67) !important;
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid rgba(var(--interactive-accent-rgb), 0.25);

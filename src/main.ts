@@ -91,10 +91,20 @@ export class FleetingModal extends Modal {
 
 		const header = contentEl.createDiv({
 			cls: "fleeting-header-container",
+			attr: {
+				style: "display: flex; justify-content: space-between; align-items: center;",
+			},
 		});
+
 		header.createEl("h2", {
 			text: "✍️ Fleeting Thoughts",
 			cls: "fleeting-title",
+		});
+
+		// 添加和 ReviewModal 一样的提示样式
+		header.createEl("span", {
+			text: "Ctrl+Enter Save",
+			attr: { style: "font-size: 0.75em; color: var(--text-muted);" },
 		});
 
 		// 加上 markdown-rendered 类名以适配 AnyBlock
