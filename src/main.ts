@@ -6,6 +6,7 @@ import {
 import { FleetingModal } from "services/fleeting-thoughts/input-modal";
 import { ReviewManager } from "services/fleeting-thoughts/review-manager";
 import { HandyUtilities } from "services/handy-utilities/handy-utilities";
+import { SimpleSidebarManager } from "services/sidebar-manager.ts/simple-sidebar-manager";
 import { MarkmapManager } from "services/startup-scripts/startsup-scripts";
 import {
 	DEFAULT_SETTINGS,
@@ -16,6 +17,7 @@ import {
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 	reviewManager: ReviewManager;
+	sidebarManager: SimpleSidebarManager;
 
 	async onload() {
 		await this.loadSettings();
@@ -24,6 +26,8 @@ export default class MyPlugin extends Plugin {
 		this.reviewManager = new ReviewManager(this.app, this.settings);
 		new HandyUtilities(this).registerAllCommands();
 		new MarkmapManager();
+		this.sidebarManager = new SimpleSidebarManager(this);	
+
 
 		this.addCommand({
 			id: "input-fleeting-thoughts",
