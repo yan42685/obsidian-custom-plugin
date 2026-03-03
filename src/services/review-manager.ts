@@ -17,7 +17,14 @@ export class ReviewManager {
             new Notice("未找到匹配卡片 📭");
             return;
         }
-        this.openRandom(cards);
+        
+        // 修复：确保随机抽取的卡片不为 undefined
+        const selectedCard = cards[Math.floor(Math.random() * cards.length)];
+        if (selectedCard) {
+            new ReviewModal(this.app, this.settings, selectedCard, async (newVal) => {
+                await this.updateVault(selectedCard, newVal);
+            }).open();
+        }
     }
 
     private async parseCards(): Promise<ThoughtCard[]> {
@@ -44,22 +51,16 @@ export class ReviewManager {
                     j++;
                 }
 
-                const content = contentLines.join("\n").trim();
-                // endLine 精准指向下一个 ---，不包含它
-                cards.push({ startLine, endLine: j, timestamp, content });
+                cards.push({ 
+                    startLine, 
+                    endLine: j, 
+                    timestamp, 
+                    content: contentLines.join("\n").trim() 
+                });
                 i = j - 1; 
             }
         }
         return cards;
-    }
-
-    private openRandom(cards: ThoughtCard[]) {
-        const card = cards[Math.floor(Math.random() * cards.length)];
-        if (card) {
-            new ReviewModal(this.app, this.settings, card, async (newVal) => {
-                await this.updateVault(card, newVal);
-            }).open();
-        }
     }
 
     private async updateVault(card: ThoughtCard, newContent: string) {
@@ -68,8 +69,6 @@ export class ReviewManager {
 
         const text = await this.app.vault.read(file);
         const lines = text.replace(/\r/g, "").split("\n");
-        
-        // 维持结构：--- \n -- 时间 \n 内容 \n
         const newBlock = ["---", `-- ${card.timestamp}`, newContent, ""]; 
         lines.splice(card.startLine, card.endLine - card.startLine, ...newBlock);
         
@@ -104,10 +103,7 @@ class ReviewModal extends Modal {
         this.modalEl.addClass("fleeting-glass-modal");
         this.modalEl.addClass("fleeting-minimal-modal");
 
-        // 隐藏关闭按钮
-        const closeBtn = this.modalEl.querySelector(".modal-close-button") as HTMLElement;
-        if (closeBtn) closeBtn.style.display = "none";
-
+        // 恢复 Modal 尺寸设置
         this.modalEl.style.width = "650px";
         this.modalEl.style.height = "450px";
         this.modalEl.style.display = "flex";
@@ -117,57 +113,68 @@ class ReviewModal extends Modal {
         header.createEl("h2", { text: `🗓 ${this.card.timestamp}`, cls: "fleeting-title" });
 
         const editorWrapper = contentEl.createDiv({
-            cls: "fleeting-editor-wrapper markdown-source-view mod-cm6 is-live-preview",
+            cls: "fleeting-editor-wrapper markdown-source-view mod-cm6 is-live-preview markdown-rendered",
             attr: { style: "flex: 1; overflow: hidden;" },
         });
 
         // @ts-ignore
-        const leaf = new (WorkspaceLeaf as any)(this.app);
-        this.activeLeaf = leaf;
+        this.activeLeaf = new (WorkspaceLeaf as any)(this.app);
+        
+        // 修复：确保 activeLeaf 存在并伪装父级以支持 AnyBlock
+        if (this.activeLeaf) {
+            (this.activeLeaf as any).parent = this.app.workspace.rootSplit;
+            await this.activeLeaf.openFile(tempFile, { active: false, state: { mode: "source" } });
+            editorWrapper.appendChild((this.activeLeaf as any).containerEl);
 
-        await leaf.openFile(tempFile, { active: false, state: { mode: "source" } });
-        editorWrapper.appendChild((leaf as any).containerEl);
+            const view = this.activeLeaf.view as MarkdownView;
 
-        const view = leaf.view as MarkdownView;
-
-        // 底部保存按钮
-        const footer = contentEl.createDiv({ 
-            attr: { style: "display:flex; justify-content:flex-end; padding: 10px 0;" } 
-        });
-
-        new ButtonComponent(footer)
-            .setButtonText("保存")
-            .setCta()
-            .onClick(async () => {
-                await this.onSave(view.editor.getValue());
+            const footer = contentEl.createDiv({ 
+                attr: { style: "display:flex; justify-content:flex-end; padding: 10px 0;" } 
             });
 
-        // 聚焦与光标定位
-        setTimeout(() => {
-            view.editor.focus();
-            
-            // 处理 Vim 模式
-            // @ts-ignore
-            if (this.app.vault.getConfig("vimMode")) {
-                const cmContent = editorWrapper.querySelector(".cm-content");
-                if (cmContent) {
-                    cmContent.dispatchEvent(new KeyboardEvent("keydown", { key: "i", bubbles: true }));
-                }
-            }
+            new ButtonComponent(footer)
+                .setButtonText("保存")
+                .setCta()
+                .onClick(async () => {
+                    await this.onSave(view.editor.getValue());
+                });
 
-            // 光标移至末尾
-            const lineCount = view.editor.lineCount();
-            const lastLineLen = view.editor.getLine(lineCount - 1).length;
-            view.editor.setCursor({ line: lineCount - 1, ch: lastLineLen });
-        }, 200);
+            // 聚焦并定位光标
+            setTimeout(() => {
+                view.editor.focus();
+                const lineCount = view.editor.lineCount();
+                view.editor.setCursor({ line: lineCount - 1, ch: view.editor.getLine(lineCount - 1).length });
+                this.app.workspace.trigger("layout-change");
+            }, 250);
+        }
 
-        // Ctrl + S 保存
         this.modalEl.addEventListener("keydown", async (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "s") {
                 e.preventDefault();
-                await this.onSave(view.editor.getValue());
+                const view = this.activeLeaf?.view as MarkdownView;
+                if (view) await this.onSave(view.editor.getValue());
             }
         });
+    }
+
+    // 修复：补全缺失的方法
+    private async ensureTempFile(): Promise<TFile | null> {
+        const path = normalizePath(this.tempFilePath);
+        const folderPath = path.substring(0, path.lastIndexOf("/"));
+        if (folderPath && !(this.app.vault.getAbstractFileByPath(folderPath) instanceof TFolder)) {
+            let current = "";
+            for (const s of folderPath.split("/")) {
+                current += (current ? "/" : "") + s;
+                if (!(this.app.vault.getAbstractFileByPath(current) instanceof TFolder)) {
+                    await this.app.vault.createFolder(current);
+                }
+            }
+        }
+        let file = this.app.vault.getAbstractFileByPath(path);
+        if (!(file instanceof TFile)) {
+            file = await this.app.vault.create(path, "");
+        }
+        return file as TFile;
     }
 
     async onClose() {
@@ -180,26 +187,5 @@ class ReviewModal extends Modal {
             await this.app.vault.modify(tempFile, "");
         }
         this.contentEl.empty();
-    }
-
-    private async ensureTempFile(): Promise<TFile | null> {
-        const path = normalizePath(this.tempFilePath);
-        const folderPath = path.substring(0, path.lastIndexOf("/"));
-
-        if (folderPath && !(this.app.vault.getAbstractFileByPath(folderPath) instanceof TFolder)) {
-            let current = "";
-            for (const s of folderPath.split("/")) {
-                current += (current ? "/" : "") + s;
-                if (!(this.app.vault.getAbstractFileByPath(current) instanceof TFolder)) {
-                    await this.app.vault.createFolder(current);
-                }
-            }
-        }
-
-        let file = this.app.vault.getAbstractFileByPath(path);
-        if (!(file instanceof TFile)) {
-            file = await this.app.vault.create(path, "");
-        }
-        return file as TFile;
     }
 }
