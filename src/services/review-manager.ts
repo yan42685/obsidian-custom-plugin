@@ -251,7 +251,7 @@ class ReviewModal extends Modal {
 	}
 
 	private setupEditorBehavior(view: MarkdownView) {
-		setTimeout(() => {
+		requestAnimationFrame(() => {
 			// 1. 暴力聚焦：直接找 DOM 元素
 			const cmContent = view.containerEl.querySelector(
 				".cm-content",
@@ -296,7 +296,7 @@ class ReviewModal extends Modal {
 				ch: view.editor.getLine(line).length,
 			});
 			this.app.workspace.trigger("layout-change");
-		}, 400); // 增加初始等待，确保 Modal 内部的 Leaf 渲染完全稳定
+		});
 	}
 
 	private async ensureTempFile(): Promise<TFile | null> {
