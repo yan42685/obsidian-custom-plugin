@@ -9,7 +9,7 @@ import {
 	TFolder,
 	WorkspaceLeaf,
 } from "obsidian";
-import { MyPluginSettings } from "../settings";
+import { MyPluginSettings } from "../../settings";
 
 interface ThoughtCard {
 	startLine: number;
