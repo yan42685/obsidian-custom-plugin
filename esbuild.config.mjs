@@ -1,7 +1,8 @@
 import esbuild from "esbuild";
-import process from "process";
+import { existsSync, mkdirSync } from "fs";
 import { builtinModules } from 'node:module';
-import { existsSync } from "fs";
+import path from "path";
+import process from "process";
 
 const banner =
 `/*
@@ -26,7 +27,21 @@ if (!hasSrcMain && !hasRootMain) {
 // Set entry point based on what exists
 const entryPoint = hasSrcMain ? "src/main.ts" : "main.ts";
 
-// Always build to root for simplicity
+// Check if this is a one-time build or watch mode
+const args = process.argv.slice(2);
+const isOneTimeBuild = args.includes("build") || args.includes("production");
+
+// 创建输出目录
+const outDir = isOneTimeBuild ? "dist" : ".";
+if (isOneTimeBuild && !existsSync(outDir)) {
+  mkdirSync(outDir, { recursive: true });
+  console.log(`📁 Created ${outDir} directory`);
+}
+
+const outfile = isOneTimeBuild 
+  ? path.join(outDir, "main.js")
+  : "main.js";
+
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -51,29 +66,31 @@ const context = await esbuild.context({
 	format: "cjs",
 	target: "es2018",
 	logLevel: "info",
-	sourcemap: "inline",
+	sourcemap: isOneTimeBuild ? false : "inline", // build 时不生成 sourcemap
 	treeShaking: true,
-	outfile: "main.js",
-	minify: false,
+	outfile: outfile,
+	minify: isOneTimeBuild, // build 时压缩
 });
-
-// Check if this is a one-time build or watch mode
-// Check for "build" or "production" argument - supports both patterns
-const args = process.argv.slice(2);
-const isOneTimeBuild = args.includes("build") || args.includes("production");
 
 if (isOneTimeBuild) {
 	// Production build: build once and exit
 	await context.rebuild();
 	console.log("\n✓ Build complete!");
-	console.log("📦 Release files:");
-	console.log("   - main.js");
-	if (existsSync("manifest.json")) {
-		console.log("   - manifest.json");
+	console.log("📦 Release files in dist folder:");
+	console.log("   - dist/main.js (minified)");
+	
+	// 复制 manifest.json 和 styles.css 到 dist 目录（如果存在）
+	const filesToCopy = ["manifest.json", "styles.css"];
+	for (const file of filesToCopy) {
+		if (existsSync(file)) {
+			const destPath = path.join(outDir, file);
+			// 使用 fs.copyFileSync 复制文件
+			const fs = await import('fs');
+			fs.copyFileSync(file, destPath);
+			console.log(`   - dist/${file}`);
+		}
 	}
-	if (existsSync("styles.css")) {
-		console.log("   - styles.css");
-	}
+	
 	console.log("\n💡 Upload these files to GitHub releases\n");
 	await context.dispose();
 	process.exit(0);
