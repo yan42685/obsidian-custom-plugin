@@ -97,13 +97,15 @@ class ReviewModal extends Modal {
         const tempFile = await this.ensureTempFile();
         if (!tempFile) return;
 
-        // 将当前卡片内容写入缓冲区
+        // 注入当前卡片内容到缓冲区
         await this.app.vault.modify(tempFile, this.card.content);
 
         this.modalEl.addClass("fleeting-glass-modal");
         this.modalEl.addClass("fleeting-minimal-modal");
 
-        // 恢复 Modal 尺寸设置
+        const closeBtn = this.modalEl.querySelector(".modal-close-button") as HTMLElement;
+        if (closeBtn) closeBtn.style.display = "none";
+
         this.modalEl.style.width = "650px";
         this.modalEl.style.height = "450px";
         this.modalEl.style.display = "flex";
@@ -118,46 +120,64 @@ class ReviewModal extends Modal {
         });
 
         // @ts-ignore
-        this.activeLeaf = new (WorkspaceLeaf as any)(this.app);
+        const leaf = new (WorkspaceLeaf as any)(this.app);
+        this.activeLeaf = leaf;
         
-        // 修复：确保 activeLeaf 存在并伪装父级以支持 AnyBlock
         if (this.activeLeaf) {
             (this.activeLeaf as any).parent = this.app.workspace.rootSplit;
-            await this.activeLeaf.openFile(tempFile, { active: false, state: { mode: "source" } });
-            editorWrapper.appendChild((this.activeLeaf as any).containerEl);
-
-            const view = this.activeLeaf.view as MarkdownView;
-
-            const footer = contentEl.createDiv({ 
-                attr: { style: "display:flex; justify-content:flex-end; padding: 10px 0;" } 
-            });
-
-            new ButtonComponent(footer)
-                .setButtonText("保存")
-                .setCta()
-                .onClick(async () => {
-                    await this.onSave(view.editor.getValue());
-                });
-
-            // 聚焦并定位光标
-            setTimeout(() => {
-                view.editor.focus();
-                const lineCount = view.editor.lineCount();
-                view.editor.setCursor({ line: lineCount - 1, ch: view.editor.getLine(lineCount - 1).length });
-                this.app.workspace.trigger("layout-change");
-            }, 250);
         }
 
+        await leaf.openFile(tempFile, { active: false, state: { mode: "source" } });
+        editorWrapper.appendChild((leaf as any).containerEl);
+
+        const view = leaf.view as MarkdownView;
+
+        // 回顾页面的底部保存按钮
+        const footer = contentEl.createDiv({ 
+            attr: { style: "display:flex; justify-content:flex-end; padding: 10px 0;" } 
+        });
+
+        new ButtonComponent(footer)
+            .setButtonText("保存")
+            .setCta()
+            .onClick(async () => {
+                await this.onSave(view.editor.getValue());
+            });
+
+        setTimeout(() => {
+            view.editor.focus();
+
+            // 复刻 Vim 插入模式逻辑
+            // @ts-ignore
+            const isVimEnabled = this.app.vault.getConfig("vimMode");
+            if (isVimEnabled) {
+                const cmContent = editorWrapper.querySelector(".cm-content");
+                if (cmContent) {
+                    const keyEvent = new KeyboardEvent("keydown", {
+                        key: "i", keyCode: 73, code: "KeyI", which: 73,
+                        bubbles: true, cancelable: true,
+                    });
+                    cmContent.dispatchEvent(keyEvent);
+                }
+            }
+
+            // 关键区别：回顾时光标置于文本末尾
+            const lineCount = view.editor.lineCount();
+            const lastLine = lineCount - 1;
+            view.editor.setCursor({ line: lastLine, ch: view.editor.getLine(lastLine).length });
+            
+            this.app.workspace.trigger("layout-change");
+        }, 250);
+
+        // 回顾页面支持 Ctrl+S 保存
         this.modalEl.addEventListener("keydown", async (e: KeyboardEvent) => {
             if ((e.ctrlKey || e.metaKey) && e.key === "s") {
                 e.preventDefault();
-                const view = this.activeLeaf?.view as MarkdownView;
-                if (view) await this.onSave(view.editor.getValue());
+                await this.onSave(view.editor.getValue());
             }
         });
     }
 
-    // 修复：补全缺失的方法
     private async ensureTempFile(): Promise<TFile | null> {
         const path = normalizePath(this.tempFilePath);
         const folderPath = path.substring(0, path.lastIndexOf("/"));
@@ -171,9 +191,7 @@ class ReviewModal extends Modal {
             }
         }
         let file = this.app.vault.getAbstractFileByPath(path);
-        if (!(file instanceof TFile)) {
-            file = await this.app.vault.create(path, "");
-        }
+        if (!(file instanceof TFile)) file = await this.app.vault.create(path, "");
         return file as TFile;
     }
 
@@ -183,9 +201,7 @@ class ReviewModal extends Modal {
             this.activeLeaf = null;
         }
         const tempFile = this.app.vault.getAbstractFileByPath(normalizePath(this.tempFilePath));
-        if (tempFile instanceof TFile) {
-            await this.app.vault.modify(tempFile, "");
-        }
+        if (tempFile instanceof TFile) await this.app.vault.modify(tempFile, "");
         this.contentEl.empty();
     }
 }

@@ -9,12 +9,12 @@ import {
 	TFolder,
 	WorkspaceLeaf,
 } from "obsidian";
+import { ReviewManager } from "services/review-manager";
 import {
 	DEFAULT_SETTINGS,
 	MyPluginSettings,
 	MyPluginSettingTab,
 } from "./settings";
-import { ReviewManager } from "services/review-manager";
 
 export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
@@ -28,8 +28,8 @@ export default class MyPlugin extends Plugin {
 
 		// 注册命令：你可以通过快捷键或命令面板 (Ctrl+P) 唤起
 		this.addCommand({
-			id: "open-fleeting-input",
-			name: "Open Fleeting Input (Markdown Preview)",
+			id: "input-fleeting-thoughts",
+			name: "Input Fleeting Thoughts",
 			callback: () => {
 				new FleetingModal(this.app, this.settings).open();
 			},
@@ -75,9 +75,9 @@ export class FleetingModal extends Modal {
 		const tempFile = await this.ensureTempFile();
 		if (!tempFile) return;
 
+		// 每次打开先清空缓冲区
 		await this.app.vault.modify(tempFile, "");
 
-		// --- 关键：添加 CSS 类名 ---
 		this.modalEl.addClass("fleeting-glass-modal");
 		this.modalEl.addClass("fleeting-minimal-modal");
 
@@ -91,7 +91,6 @@ export class FleetingModal extends Modal {
 		this.modalEl.style.display = "flex";
 		this.modalEl.style.flexDirection = "column";
 
-		// --- 关键：调整标题结构以适配 CSS ---
 		const header = contentEl.createDiv({
 			cls: "fleeting-header-container",
 		});
@@ -100,14 +99,20 @@ export class FleetingModal extends Modal {
 			cls: "fleeting-title",
 		});
 
+		// 加上 markdown-rendered 类名以适配 AnyBlock
 		const editorWrapper = contentEl.createDiv({
-			cls: "fleeting-editor-wrapper markdown-source-view mod-cm6 is-live-preview",
+			cls: "fleeting-editor-wrapper markdown-source-view mod-cm6 is-live-preview markdown-rendered",
 			attr: { style: "flex: 1; overflow: hidden;" },
 		});
 
 		// @ts-ignore
 		const leaf = new (WorkspaceLeaf as any)(this.app);
 		this.activeLeaf = leaf;
+
+		// 关键 Hack：伪装父级以支持第三方插件
+		if (this.activeLeaf) {
+			(this.activeLeaf as any).parent = this.app.workspace.rootSplit;
+		}
 
 		await leaf.openFile(tempFile, {
 			active: false,
@@ -126,6 +131,7 @@ export class FleetingModal extends Modal {
 			);
 		}
 
+		// 保持原有的 Ctrl+Enter 保存逻辑
 		this.modalEl.addEventListener(
 			"keydown",
 			async (e: KeyboardEvent) => {
@@ -142,13 +148,12 @@ export class FleetingModal extends Modal {
 			true,
 		);
 
-		// 延迟聚焦：建议 200ms 以上，1ms 太快可能导致 DOM 没渲染完，光标出不来
 		setTimeout(() => {
 			view.editor.focus();
 
+			// 恢复完整的 Vim 插入模式逻辑
 			// @ts-ignore
 			const isVimEnabled = this.app.vault.getConfig("vimMode");
-
 			if (isVimEnabled) {
 				const cmContent = editorWrapper.querySelector(".cm-content");
 				if (cmContent) {
@@ -161,16 +166,17 @@ export class FleetingModal extends Modal {
 						cancelable: true,
 					});
 					cmContent.dispatchEvent(keyEvent);
-
 					if (view.editor.getValue() === "i") {
 						view.editor.setValue("");
 					}
 				}
 			}
 
-			const lineCount = view.editor.lineCount();
-			view.editor.setCursor({ line: lineCount, ch: 0 });
-		}, 1); // 增加到 250ms 保证稳定性
+			// 录入时光标在开头
+			view.editor.setCursor({ line: 0, ch: 0 });
+			// 触发 AnyBlock 扫描渲染
+			this.app.workspace.trigger("layout-change");
+		}, 250);
 	}
 	async onClose() {
 		// 销毁叶子，防止它留在后台或干扰布局
