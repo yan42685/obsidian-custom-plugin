@@ -113,7 +113,7 @@ export class FleetingModal extends Modal {
 		}
 
 		await leaf.openFile(tempFile, {
-			active: false,
+			active: true,
 			state: { mode: "source" },
 		});
 
@@ -180,13 +180,30 @@ export class FleetingModal extends Modal {
 		});
 	}
 	async onClose() {
-		// 销毁叶子，防止它留在后台或干扰布局
+		// 1. 先销毁叶子，解除编辑器对文件的占用
 		if (this.activeLeaf) {
 			this.activeLeaf.detach();
 			this.activeLeaf = null;
 		}
 
+		// 2. 给 Obsidian 一点时间释放文件, 避免同时保存和清空
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
+		// 3. 再清空文件
+		try {
+			const bufferFile = this.app.vault.getAbstractFileByPath(
+				normalizePath(this.tempFilePath),
+			);
+			if (bufferFile instanceof TFile) {
+				await this.app.vault.modify(bufferFile, "");
+				console.log("Buffer file cleared");
+			}
+		} catch (e) {
+			console.error("Failed to clear buffer:", e);
+		}
+
 		this.contentEl.empty();
+		super.onClose();
 	}
 
 	private async appendToVault(content: string) {

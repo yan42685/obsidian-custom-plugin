@@ -54,10 +54,6 @@ export class ReviewManager {
 				},
 			);
 
-			this.modal.onClose = () => {
-				this.modal = null;
-				this.strategy = null; // 关闭时重置策略状态
-			};
 
 			this.modal.open();
 		}
@@ -207,7 +203,7 @@ class ReviewModal extends Modal {
 		if (this.activeLeaf) {
 			(this.activeLeaf as any).parent = this.app.workspace.rootSplit;
 			await this.activeLeaf.openFile(tempFile, {
-				active: false,
+				active: true,
 				state: { mode: "source" },
 			});
 			editorWrapper.appendChild((this.activeLeaf as any).containerEl);
@@ -317,27 +313,48 @@ class ReviewModal extends Modal {
 		return file as TFile;
 	}
 
-	onClose() {
-		if (this.vimTimeout) {
-			window.clearTimeout(this.vimTimeout);
-			this.vimTimeout = null;
-		}
+	async onClose() {
+	if (this.vimTimeout) {
+		window.clearTimeout(this.vimTimeout);
+		this.vimTimeout = null;
+	}
 
-		if (this.activeLeaf) {
-			this.activeLeaf.detach();
-			this.activeLeaf = null;
-		}
-		const tempFile = this.app.vault.getAbstractFileByPath(
+	// 1. 先销毁叶子，解除编辑器对文件的占用
+	if (this.activeLeaf) {
+		this.activeLeaf.detach();
+		this.activeLeaf = null;
+	}
+
+	// 2. 给 Obsidian 一点时间释放文件
+	await new Promise((resolve) => setTimeout(resolve, 500));
+
+	// 3. 再清空文件
+	try {
+		const bufferFile = this.app.vault.getAbstractFileByPath(
 			normalizePath(this.tempFilePath),
 		);
-		if (tempFile instanceof TFile) {
-			this.app.vault.modify(tempFile, "");
+		if (bufferFile instanceof TFile) {
+			await this.app.vault.modify(bufferFile, "");
+			console.log("Buffer file cleared");
 		}
-		super.onClose();
+	} catch (e) {
+		console.error("Failed to clear buffer:", e);
 	}
+
+	this.contentEl.empty();
+	
+	// 4. 直接通知 manager 清理状态
+	if (this.manager) {
+		// 需要在 ReviewModal 中保存 manager 引用
+		(this.manager as any).modal = null;
+		(this.manager as any).strategy = null;
+	}
+	
+	super.onClose();
+}
 }
 
-export class ReviewStrategy {
+class ReviewStrategy {
 	private indices: number[] = [];
 	private pointer = 0;
 	private readonly total: number;
