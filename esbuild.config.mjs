@@ -27,8 +27,6 @@ if (!hasSrcMain && !hasRootMain) {
 const entryPoint = hasSrcMain ? "src/main.ts" : "main.ts";
 
 // Always build to root for simplicity
-const outfile = "main.js";
-
 const context = await esbuild.context({
 	banner: {
 		js: banner,
@@ -55,7 +53,7 @@ const context = await esbuild.context({
 	logLevel: "info",
 	sourcemap: "inline",
 	treeShaking: true,
-	outfile: outfile,
+	outfile: "main.js",
 	minify: false,
 });
 

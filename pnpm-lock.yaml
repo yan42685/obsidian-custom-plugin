@@ -34,10 +34,10 @@ importers:
         specifier: ^9.39.1
         version: 9.39.2(jiti@2.6.1)
       eslint-plugin-obsidianmd:
-        specifier: 0.1.9
+        specifier: ^0.1.9
         version: 0.1.9(@eslint/js@9.39.2)(@eslint/json@0.14.0)(@typescript-eslint/parser@8.35.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3))(eslint@9.39.2(jiti@2.6.1))(obsidian@1.11.0(@codemirror/state@6.5.0)(@codemirror/view@6.38.6))(typescript-eslint@8.35.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3))
       globals:
-        specifier: 14.0.0
+        specifier: ^14.0.0
         version: 14.0.0
       jiti:
         specifier: 2.6.1
@@ -52,7 +52,7 @@ importers:
         specifier: 5.8.3
         version: 5.8.3
       typescript-eslint:
-        specifier: 8.35.1
+        specifier: ^8.35.1
         version: 8.35.1(eslint@9.39.2(jiti@2.6.1))(typescript@5.8.3)
 
 packages:

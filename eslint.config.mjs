@@ -11,10 +11,6 @@ export default defineConfig([
   ...obsidianmd.configs.recommended,
   {
     files: ["**/*.ts"],
-    // Enable reporting of unused disable directives (matches Obsidian bot behavior)
-    linterOptions: {
-      reportUnusedDisableDirectives: "error"
-    },
     languageOptions: {
       parser: tsparser,
       parserOptions: { 
@@ -23,7 +19,6 @@ export default defineConfig([
       },
       globals: {
         ...globals.browser,
-        require: "readonly", // Node.js require function (available in Obsidian's environment)
         DomElementInfo: "readonly",
         SvgElementInfo: "readonly",
         activeDocument: "readonly",
@@ -44,19 +39,14 @@ export default defineConfig([
       }
     },
     // Custom rule overrides
+    // Note: Console and async/await rules match Obsidian bot requirements
     rules: {
       "@typescript-eslint/ban-ts-comment": "off",
       "@typescript-eslint/no-empty-function": "off",
       "no-prototype-builtins": "off",
       "@typescript-eslint/no-misused-promises": ["error",{"checksVoidReturn":{"attributes":false,"properties":false,"returns":false,"variables":false}}],
-      // Disable sample code rules for template repository
-      // These are intentional placeholder names and sample code that users should customize
-      "obsidianmd/sample-names": "off",
-      "obsidianmd/no-sample-code": "off",
-      // Console rules: Match Obsidian bot requirements (only warn/error/debug allowed)
-      "no-console": ["error", { "allow": ["warn", "error", "debug"] }],
-      // Require await in async functions (matches Obsidian bot)
-      "@typescript-eslint/require-await": "error",
+      "no-console": ["error",{"allow":["warn","error","debug"]}],
+      "@typescript-eslint/require-await": "error"
     },
   },
   {

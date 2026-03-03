@@ -6,3 +6,69 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+/* 确保 modal 框能出现光标 */
+  .workspace-leaf {
+    height: 100% !important;
+    width: 100% !important;
+}
+.markdown-source-view.mod-cm6 .cm-editor {
+    min-height: 100%;
+}  
+
+
+/* ==========================================================================
+   Fleeting Thoughts 极简插件样式
+   ========================================================================== */
+
+/* 1. 隐藏编辑器顶部的所有 UI 元素 (文件名、导航、操作按钮) */
+.fleeting-editor-wrapper .view-header,
+.fleeting-editor-wrapper .view-actions,
+.fleeting-editor-wrapper .inline-title,
+.fleeting-editor-wrapper .metadata-container {
+    display: none !important;
+}
+
+/* 2. 隐藏编辑器底部的状态栏 (字数统计等) */
+.fleeting-editor-wrapper .view-footer {
+    display: none !important;
+}
+
+/* 3. 彻底移除所有边框和背景，确保视觉上只有文字 */
+.fleeting-editor-wrapper .workspace-leaf,
+.fleeting-editor-wrapper .workspace-leaf-content,
+.fleeting-editor-wrapper .view-content,
+.fleeting-editor-wrapper .markdown-source-view.mod-cm6 {
+    background-color: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+}
+
+/* 4. 优化输入区域的内边距，让文字离标题有一点呼吸感 */
+.fleeting-editor-wrapper .markdown-source-view.mod-cm6 .cm-content {
+    padding-top: 10px !important;
+    padding-left: 5px !important;
+    padding-right: 5px !important;
+    line-height: 1.6;
+}
+
+/* 5. 确保编辑器填满 Modal 剩余空间 */
+.fleeting-editor-wrapper .cm-editor {
+    height: 100% !important;
+}
+
+/* 6. 隐藏 Modal 默认的右上角关闭按钮 (X) */
+.fleeting-minimal-modal .modal-close-button {
+    display: none !important;
+}
+
+/* 7. (可选) 增加光标的厚度，使其在极简界面中更显眼 */
+.fleeting-editor-wrapper .cm-cursor {
+    border-left: 2px solid var(--interactive-accent) !important;
+}
+
+/* 8. 针对 Callout 预览的微调 (如果存入笔记后立即查看) */
+.markdown-rendered blockquote.callout[data-callout="cite"] {
+    margin-top: 10px;
+    margin-bottom: 10px;
+}

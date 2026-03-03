@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-sample-plugin",
+	"name": "custom-plugin",
 	"version": "1.0.0",
 	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
 	"main": "main.js",
@@ -23,13 +23,13 @@
 		"@typescript-eslint/parser": "^8.33.1",
 		"esbuild": "0.25.5",
 		"eslint": "^9.39.1",
-		"eslint-plugin-obsidianmd": "0.1.9",
-		"globals": "14.0.0",
+		"eslint-plugin-obsidianmd": "^0.1.9",
+		"globals": "^14.0.0",
 		"jiti": "2.6.1",
 		"obsidian-dev-skills": "^1.0.2",
 		"tslib": "2.4.0",
 		"typescript": "5.8.3",
-		"typescript-eslint": "8.35.1"
+		"typescript-eslint": "^8.35.1"
 	},
 	"dependencies": {
 		"obsidian": "latest"

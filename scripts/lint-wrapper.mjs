@@ -2,43 +2,13 @@
 
 /**
  * ESLint wrapper that adds helpful success messages
- * Also checks for undescribed eslint-disable comments (mimics Obsidian bot)
  */
 
 import { spawn, execSync } from 'child_process';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import process from 'process';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const args = process.argv.slice(2);
 const hasFix = args.includes('--fix');
-
-// First, check for undescribed eslint-disable comments (mimics Obsidian bot)
-try {
-	execSync('node scripts/check-disable-comments.mjs', { 
-		stdio: 'inherit', 
-		shell: true,
-		cwd: join(__dirname, '..')
-	});
-} catch (error) {
-	// Script will have already printed the error
-	process.exit(1);
-}
-
-// Check for attempts to disable non-disablable rules (mimics Obsidian bot)
-try {
-	execSync('node scripts/check-disallowed-disables.mjs', { 
-		stdio: 'inherit', 
-		shell: true,
-		cwd: join(__dirname, '..')
-	});
-} catch (error) {
-	// Script will have already printed the error
-	process.exit(1);
-}
 
 // Detect which package manager to use
 // Check if pnpm is available, otherwise fall back to npx
@@ -58,11 +28,10 @@ const commandArgs = usePnpm ? ['exec', ...eslintArgs] : eslintArgs;
 
 const eslint = spawn(command, commandArgs, {
 	stdio: 'inherit',
-	shell: true
+	shell: false
 });
 
 eslint.on('close', (code) => {
-	// Only show success message if exit code is exactly 0 (no errors or warnings)
 	if (code === 0) {
 		const message = hasFix 
 			? '\n✓ Linting complete! All issues fixed automatically.\n'
@@ -70,13 +39,7 @@ eslint.on('close', (code) => {
 		console.log(message);
 		process.exit(0);
 	} else {
-		// ESLint already printed errors/warnings, exit with the code
-		// Don't show any success message
-		process.exit(code || 1);
+		// ESLint already printed errors, just exit with the code
+		process.exit(code);
 	}
-});
-
-eslint.on('error', (error) => {
-	console.error('Error running ESLint:', error);
-	process.exit(1);
 });

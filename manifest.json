@@ -1,6 +1,6 @@
 {
-	"id": "sample-plugin",
-	"name": "Sample Plugin",
+	"id": "custom-plugin",
+	"name": "Custom Plugin",
 	"version": "0.0.1",
 	"minAppVersion": "1.11.0",
 	"description": "Demonstrates some of the capabilities of the Obsidian API.",
