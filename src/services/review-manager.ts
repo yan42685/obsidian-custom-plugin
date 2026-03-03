@@ -1,13 +1,13 @@
 import {
-    App,
-    ButtonComponent,
-    MarkdownView,
-    Modal,
-    normalizePath,
-    Notice,
-    TFile,
-    TFolder,
-    WorkspaceLeaf,
+	App,
+	ButtonComponent,
+	MarkdownView,
+	Modal,
+	normalizePath,
+	Notice,
+	TFile,
+	TFolder,
+	WorkspaceLeaf,
 } from "obsidian";
 import { MyPluginSettings } from "../settings";
 
@@ -101,7 +101,6 @@ export class ReviewManager {
 				let j = i + 2;
 				const contentLines: string[] = [];
 				while (j < lines.length && lines[j]?.trim() !== "---") {
-					// 修复：Argument of type 'string | undefined' 报错
 					const line = lines[j];
 					if (typeof line === "string") contentLines.push(line);
 					j++;
@@ -140,7 +139,7 @@ export class ReviewManager {
 class ReviewModal extends Modal {
 	private tempFilePath: string = "meta_files/templates/input_buffer.md";
 	private activeLeaf: WorkspaceLeaf | null = null;
-	// 修复：取消私有属性声明，避免继承报错
+	private vimTimeout: number | null = null;
 	titleElement: HTMLElement;
 
 	constructor(
@@ -175,13 +174,11 @@ class ReviewModal extends Modal {
 		const { contentEl } = this;
 		contentEl.empty();
 
-		// 修复：确保 ensureTempFile 存在
 		const tempFile = await this.ensureTempFile();
 		if (!tempFile) return;
 		await this.app.vault.modify(tempFile, this.card.content);
 
 		this.modalEl.addClass("fleeting-glass-modal", "fleeting-minimal-modal");
-		// 修复尺寸
 		Object.assign(this.modalEl.style, {
 			width: "650px",
 			height: "450px",
@@ -212,7 +209,6 @@ class ReviewModal extends Modal {
 		// @ts-ignore
 		this.activeLeaf = new (WorkspaceLeaf as any)(this.app);
 
-		// 修复：安全使用 activeLeaf
 		if (this.activeLeaf) {
 			(this.activeLeaf as any).parent = this.app.workspace.rootSplit;
 			await this.activeLeaf.openFile(tempFile, {
@@ -260,19 +256,45 @@ class ReviewModal extends Modal {
 
 	private setupEditorBehavior(view: MarkdownView) {
 		setTimeout(() => {
-			view.editor.focus();
-			// @ts-ignore 同步 Vim 模式与 AnyBlock 渲染
-			if (this.app.vault.getConfig("vimMode")) {
-				const cm = (view.editor as any).cm;
-				if (cm) cm.dispatch({ effects: [] });
+			// 1. 暴力聚焦：直接找 DOM 元素
+			const cmContent = view.containerEl.querySelector(".cm-content") as HTMLElement;
+			if (cmContent) {
+				cmContent.focus();
+			} else {
+				view.editor.focus();
 			}
+
+			// @ts-ignore 检查 Vim
+			if (this.app.vault.getConfig("vimMode")) {
+				if (this.vimTimeout) window.clearTimeout(this.vimTimeout);
+
+				this.vimTimeout = window.setTimeout(() => {
+					// 2. 暴力事件：构造并派发原生键盘事件
+					const target = cmContent || view.containerEl;
+					const keyEventOpts = {
+						key: "a",
+						keyCode: 65,
+						code: "KeyA",
+						which: 65,
+						bubbles: true,
+						cancelable: true,
+					};
+
+					// 依次触发 keydown 和 keypress，这是模拟输入最稳妥的组合
+					target.dispatchEvent(new KeyboardEvent("keydown", keyEventOpts));
+					target.dispatchEvent(new KeyboardEvent("keypress", keyEventOpts));
+					
+					this.vimTimeout = null;
+				}, 1); // 严格满足 1ms 要求
+			}
+
 			const line = view.editor.lineCount() - 1;
 			view.editor.setCursor({
 				line,
 				ch: view.editor.getLine(line).length,
 			});
 			this.app.workspace.trigger("layout-change");
-		}, 100);
+		}, 400); // 增加初始等待，确保 Modal 内部的 Leaf 渲染完全稳定
 	}
 
 	private async ensureTempFile(): Promise<TFile | null> {
@@ -294,6 +316,11 @@ class ReviewModal extends Modal {
 	}
 
 	onClose() {
+		if (this.vimTimeout) {
+			window.clearTimeout(this.vimTimeout);
+			this.vimTimeout = null;
+		}
+
 		if (this.activeLeaf) {
 			this.activeLeaf.detach();
 			this.activeLeaf = null;
@@ -308,79 +335,58 @@ class ReviewModal extends Modal {
 	}
 }
 
-// TODO: 改成 fsrs 算法
 export class ReviewStrategy {
-    private indices: number[] = [];
-    private pointer = 0;
-    private readonly total: number;
+	private indices: number[] = [];
+	private pointer = 0;
+	private readonly total: number;
 
-    constructor(totalCount: number) {
-        this.total = totalCount;
-        this.indices = Array.from({ length: totalCount }, (_, i) => i);
-        // 初始第一轮不需要考虑“上一轮最后一张”，传 -1 即可
-        this.shuffle(-1);
-    }
+	constructor(totalCount: number) {
+		this.total = totalCount;
+		this.indices = Array.from({ length: totalCount }, (_, i) => i);
+		this.shuffle(-1);
+	}
 
-    /**
-     * 洗牌算法：Fisher-Yates 
-     * @param lastIndex 上一轮最后显示的索引，用于首尾去重
-     */
-    private shuffle(lastIndex: number): void {
-        // 1. 标准 Fisher-Yates 洗牌
-        for (let i = this.total - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            const temp = this.indices[i];
-            const target = this.indices[j];
-            
-            // ESLint: 显式检查以符合 strictNullChecks
-            if (temp !== undefined && target !== undefined) {
-                this.indices[i] = target;
-                this.indices[j] = temp;
-            }
-        }
+	private shuffle(lastIndex: number): void {
+		for (let i = this.total - 1; i > 0; i--) {
+			const j = Math.floor(Math.random() * (i + 1));
+			const temp = this.indices[i];
+			const target = this.indices[j];
+			if (temp !== undefined && target !== undefined) {
+				this.indices[i] = target;
+				this.indices[j] = temp;
+			}
+		}
 
-        // 2. 核心限制：确保第二轮第一个不等于上一轮最后一个
-        // 只有在总数大于 1 时才有必要且可能进行交换
-        if (this.total > 1 && this.indices[0] === lastIndex) {
-            // 将重复的第一个元素与后面任意一个位置交换（这里取第二个位置 i=1）
-            const first = this.indices[0];
-            const second = this.indices[1];
-            if (first !== undefined && second !== undefined) {
-                this.indices[0] = second;
-                this.indices[1] = first;
-            }
-        }
+		if (this.total > 1 && this.indices[0] === lastIndex) {
+			const first = this.indices[0];
+			const second = this.indices[1];
+			if (first !== undefined && second !== undefined) {
+				this.indices[0] = second;
+				this.indices[1] = first;
+			}
+		}
 
-        this.pointer = 0;
-    }
+		this.pointer = 0;
+	}
 
-    /**
-     * 获取下一个索引
-     * @param currentIndex 当前正在显示的索引，用于在新一轮开始时校验
-     */
-    public getNextIndex(currentIndex: number): number {
-        if (this.pointer >= this.total) {
-            // 触发新一轮洗牌，并传入当前索引作为“上一轮最后一个”
-            this.shuffle(currentIndex);
-        }
+	public getNextIndex(currentIndex: number): number {
+		if (this.pointer >= this.total) {
+			this.shuffle(currentIndex);
+		}
+		const next = this.indices[this.pointer];
+		this.pointer++;
+		return next ?? 0;
+	}
 
-        const next = this.indices[this.pointer];
-        this.pointer++;
-        
-        // ESLint: 确保返回值始终为 number
-        return next ?? 0;
-    }
+	public getPrevIndex(): number {
+		if (this.pointer <= 1) {
+			return this.indices[0] ?? 0;
+		}
+		this.pointer--;
+		return this.indices[this.pointer - 1] ?? 0;
+	}
 
-    public getPrevIndex(): number {
-        // 指针位置补偿：pointer 总是指向“下一个”，所以当前是 pointer-1，上一个是 pointer-2
-        if (this.pointer <= 1) {
-            return this.indices[0] ?? 0;
-        }
-        this.pointer--;
-        return this.indices[this.pointer - 1] ?? 0;
-    }
-
-    public getProgressText(): string {
-        return `${this.pointer}/${this.total}`;
-    }
+	public getProgressText(): string {
+		return `${this.pointer}/${this.total}`;
+	}
 }
