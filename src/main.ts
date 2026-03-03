@@ -86,8 +86,9 @@ export class FleetingModal extends Modal {
 		) as HTMLElement;
 		if (closeBtn) closeBtn.style.display = "none";
 
-		this.modalEl.style.width = "650px";
-		this.modalEl.style.height = "450px";
+		// this.modalEl.style.width = "650px";
+		this.modalEl.style.width = "1000px";
+		this.modalEl.style.height = "618px";
 		this.modalEl.style.display = "flex";
 		this.modalEl.style.flexDirection = "column";
 

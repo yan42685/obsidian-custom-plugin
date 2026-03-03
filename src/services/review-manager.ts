@@ -180,8 +180,8 @@ class ReviewModal extends Modal {
 
 		this.modalEl.addClass("fleeting-glass-modal", "fleeting-minimal-modal");
 		Object.assign(this.modalEl.style, {
-			width: "650px",
-			height: "450px",
+			width: "1000px",
+			height: "618px",
 			display: "flex",
 			flexDirection: "column",
 		});
