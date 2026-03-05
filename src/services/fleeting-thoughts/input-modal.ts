@@ -1,6 +1,14 @@
-import { App, MarkdownView, Modal, normalizePath, Notice, TFile, TFolder, WorkspaceLeaf } from "obsidian";
+import {
+    App,
+    MarkdownView,
+    Modal,
+    normalizePath,
+    Notice,
+    TFile,
+    TFolder,
+    WorkspaceLeaf,
+} from "obsidian";
 import { MyPluginSettings } from "settings";
-
 
 export class FleetingModal extends Modal {
 	private settings: MyPluginSettings;
@@ -24,7 +32,7 @@ export class FleetingModal extends Modal {
 		this.modalEl.addClass("fleeting-minimal-modal");
 
 		const closeBtn = this.modalEl.querySelector(
-			".modal-close-button"
+			".modal-close-button",
 		) as HTMLElement;
 		if (closeBtn) closeBtn.style.display = "none";
 
@@ -48,7 +56,7 @@ export class FleetingModal extends Modal {
 
 		// 添加和 ReviewModal 一样的提示样式
 		header.createEl("span", {
-			text: "Ctrl+Enter Save",
+			text: "Ctrl+Enter Confirm Input",
 			attr: { style: "font-size: 0.75em; color: var(--text-muted);" },
 		});
 
@@ -80,7 +88,7 @@ export class FleetingModal extends Modal {
 		if (view.getMode() !== "source") {
 			await view.setState(
 				{ ...view.getState(), mode: "source" },
-				{ history: false }
+				{ history: false },
 			);
 		}
 
@@ -93,19 +101,19 @@ export class FleetingModal extends Modal {
 					e.stopPropagation();
 					const content = view.editor.getValue();
 					if (content.trim()) {
-						await this.appendToVault(content);
 						this.close();
+						await this.appendToVault(content);
 					}
 				}
 			},
-			true
+			true,
 		);
 
 		requestAnimationFrame(() => {
 			view.editor.focus();
 
 			// 每次打开先清空缓冲区
-			view.editor.setValue("");
+			// view.editor.setValue("");
 
 			// 恢复完整的 Vim 插入模式逻辑
 			// @ts-ignore
@@ -122,14 +130,15 @@ export class FleetingModal extends Modal {
 						cancelable: true,
 					});
 					cmContent.dispatchEvent(keyEvent);
-					if (view.editor.getValue() === "i") {
-						view.editor.setValue("");
-					}
 				}
 			}
+			const lineCount = view.editor.lineCount();
+			const lastLineText = view.editor.getLine(lineCount - 1);
 
-			// 录入时光标在开头
-			view.editor.setCursor({ line: 0, ch: 0 });
+			view.editor.setCursor({
+				line: lineCount - 1,
+				ch: lastLineText.length,
+			});
 			// 触发 AnyBlock 扫描渲染
 			this.app.workspace.trigger("layout-change");
 		});
@@ -139,22 +148,6 @@ export class FleetingModal extends Modal {
 		if (this.activeLeaf) {
 			this.activeLeaf.detach();
 			this.activeLeaf = null;
-		}
-
-		// 2. 给 Obsidian 一点时间释放文件, 避免同时保存和清空
-		await new Promise((resolve) => setTimeout(resolve, 500));
-
-		// 3. 再清空文件
-		try {
-			const bufferFile = this.app.vault.getAbstractFileByPath(
-				normalizePath(this.tempFilePath)
-			);
-			if (bufferFile instanceof TFile) {
-				await this.app.vault.modify(bufferFile, "");
-				console.log("Buffer file cleared");
-			}
-		} catch (e) {
-			console.error("Failed to clear buffer:", e);
 		}
 
 		this.contentEl.empty();
@@ -176,17 +169,29 @@ export class FleetingModal extends Modal {
 			} else {
 				const folderPath = targetPath.substring(
 					0,
-					targetPath.lastIndexOf("/")
+					targetPath.lastIndexOf("/"),
 				);
-				if (folderPath &&
+				if (
+					folderPath &&
 					!(
 						this.app.vault.getAbstractFileByPath(
-							folderPath
+							folderPath,
 						) instanceof TFolder
-					)) {
+					)
+				) {
 					await this.app.vault.createFolder(folderPath);
 				}
 				await this.app.vault.create(targetPath, finalEntry);
+			}
+
+			// 在保存后，才物理清空 write_buffer.md
+			// 给 Obsidian 一点时间释放文件, 避免同时自动保存和此处清空write_buffer
+			await new Promise((resolve) => setTimeout(resolve, 500));
+			const bufferFile = this.app.vault.getAbstractFileByPath(
+				normalizePath(this.tempFilePath),
+			);
+			if (bufferFile instanceof TFile) {
+				await this.app.vault.modify(bufferFile, "");
 			}
 			new Notice("✅ Saved");
 		} catch (e: any) {
@@ -199,18 +204,22 @@ export class FleetingModal extends Modal {
 		const path = normalizePath(this.tempFilePath);
 		const folderPath = path.substring(0, path.lastIndexOf("/"));
 
-		if (folderPath &&
+		if (
+			folderPath &&
 			!(
 				this.app.vault.getAbstractFileByPath(folderPath) instanceof
 				TFolder
-			)) {
+			)
+		) {
 			let current = "";
 			for (const s of folderPath.split("/")) {
 				current += (current ? "/" : "") + s;
-				if (!(
-					this.app.vault.getAbstractFileByPath(current) instanceof
-					TFolder
-				)) {
+				if (
+					!(
+						this.app.vault.getAbstractFileByPath(current) instanceof
+						TFolder
+					)
+				) {
 					await this.app.vault.createFolder(current);
 				}
 			}

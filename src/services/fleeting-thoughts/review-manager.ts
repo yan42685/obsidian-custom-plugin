@@ -133,7 +133,7 @@ export class ReviewManager {
 }
 
 class ReviewModal extends Modal {
-	private tempFilePath: string = "meta_files/templates/input_buffer.md";
+	private tempFilePath: string = "meta_files/templates/review_buffer.md";
 	private activeLeaf: WorkspaceLeaf | null = null;
 	private vimTimeout: number | null = null;
 	titleElement: HTMLElement;
@@ -188,7 +188,7 @@ class ReviewModal extends Modal {
 			cls: "fleeting-title",
 		});
 		header.createEl("span", {
-			text: "Ctrl+J Next | Ctrl+K Previous",
+			text: "Ctrl+J Next | Ctrl+K Prev | Ctrl+S Save", 
 			attr: { style: "font-size: 0.75em; color: var(--text-muted);" },
 		});
 
