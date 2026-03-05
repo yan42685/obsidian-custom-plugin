@@ -228,7 +228,8 @@ class ReviewModal extends Modal {
 
 		const view = this.activeLeaf?.view as MarkdownView;
 		if (view) {
-			view.editor.setValue(this.card.content); // 直接设置编辑器内容
+			// 在内容末尾加一个 \n，方便在 Modal 中编辑
+			view.editor.setValue(this.card.content + "\n"); // 直接设置编辑器内容
 			this.setupEditorBehavior(view);
 		}
 	}
@@ -280,7 +281,7 @@ class ReviewModal extends Modal {
 			editorWrapper.appendChild((this.activeLeaf as any).containerEl);
 
 			const view = this.activeLeaf.view as MarkdownView;
-			view.editor.setValue(this.card.content);
+			view.editor.setValue(this.card.content + "\n");
 			this.setupEditorBehavior(view);
 
 			const footer = contentEl.createDiv({
