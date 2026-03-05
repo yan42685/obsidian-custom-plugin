@@ -1,12 +1,12 @@
 import {
-    App,
-    MarkdownView,
-    Modal,
-    normalizePath,
-    Notice,
-    TFile,
-    TFolder,
-    WorkspaceLeaf,
+	App,
+	MarkdownView,
+	Modal,
+	normalizePath,
+	Notice,
+	TFile,
+	TFolder,
+	WorkspaceLeaf,
 } from "obsidian";
 import { MyPluginSettings } from "settings";
 
@@ -20,6 +20,29 @@ export class FleetingModal extends Modal {
 		super(app);
 		this.settings = settings;
 	}
+
+	private handleKeyDown = async (e: KeyboardEvent) => {
+		if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+			const view = this.activeLeaf?.view as MarkdownView;
+			if (!view) return;
+
+			const content = view.editor.getValue();
+			if (content.trim()) {
+				e.preventDefault();
+				e.stopPropagation();
+
+				// 先移除监听，防止由于异步延迟导致的连击重复保存
+				this.modalEl.removeEventListener(
+					"keydown",
+					this.handleKeyDown,
+					true,
+				);
+
+				this.close();
+				await this.appendToVault(content);
+			}
+		}
+	};
 
 	async onOpen() {
 		const { contentEl } = this;
@@ -92,22 +115,7 @@ export class FleetingModal extends Modal {
 			);
 		}
 
-		// 保持原有的 Ctrl+Enter 保存逻辑
-		this.modalEl.addEventListener(
-			"keydown",
-			async (e: KeyboardEvent) => {
-				if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-					e.preventDefault();
-					e.stopPropagation();
-					const content = view.editor.getValue();
-					if (content.trim()) {
-						this.close();
-						await this.appendToVault(content);
-					}
-				}
-			},
-			true,
-		);
+		this.modalEl.addEventListener("keydown", this.handleKeyDown, true);
 
 		requestAnimationFrame(() => {
 			view.editor.focus();
@@ -144,7 +152,8 @@ export class FleetingModal extends Modal {
 		});
 	}
 	async onClose() {
-		// 1. 先销毁叶子，解除编辑器对文件的占用
+		this.modalEl.removeEventListener("keydown", this.handleKeyDown, true);
+
 		if (this.activeLeaf) {
 			this.activeLeaf.detach();
 			this.activeLeaf = null;
@@ -157,10 +166,14 @@ export class FleetingModal extends Modal {
 	private async appendToVault(content: string) {
 		const targetPath = normalizePath(this.settings.storagePath);
 		const now = new Date();
-		const dateStr = `${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()} ${now.getHours().toString().padStart(2, "0")}:${now.getMinutes().toString().padStart(2, "0")}`;
+		const pad = (n: number) => n.toString().padStart(2, "0");
+
+		const dateStr =
+			`${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ` +
+			`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
 		// 关键修复：去掉时间戳后的 \n\n，让正文紧跟时间
-		const finalEntry = `\n---\n-- ${dateStr}\n${content}\n`;
+		const finalEntry = `-- ${dateStr} --\n${content.trim()}\n\n`;
 
 		let targetFile = this.app.vault.getAbstractFileByPath(targetPath);
 		try {

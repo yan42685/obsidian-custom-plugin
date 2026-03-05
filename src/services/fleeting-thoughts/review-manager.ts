@@ -54,7 +54,6 @@ export class ReviewManager {
 				},
 			);
 
-
 			this.modal.open();
 		}
 	}
@@ -83,30 +82,60 @@ export class ReviewManager {
 			normalizePath(this.settings.storagePath),
 		);
 		if (!(file instanceof TFile)) return [];
+
 		const text = await this.app.vault.read(file);
+		// 使用 filter(Boolean) 可能会误删空白行，所以我们保留原样，但在循环中处理
 		const lines = text.replace(/\r/g, "").split("\n");
 		const cards: ThoughtCard[] = [];
 
 		for (let i = 0; i < lines.length; i++) {
-			if (
-				lines[i]?.trim() === "---" &&
-				lines[i + 1]?.trim().startsWith("-- ")
-			) {
+			// ✅ 修复：使用可选链或显式检查处理可能存在的 undefined
+			const line = lines[i]?.trim();
+
+			// 匹配格式: -- 2026/03/05 ... --
+			if (line && line.startsWith("-- ") && line.endsWith(" --")) {
 				const startLine = i;
-				const timestamp = lines[i + 1]!.trim().replace("-- ", "");
-				let j = i + 2;
+				const timestamp = line.substring(3, line.length - 3).trim();
+
+				let j = i + 1;
 				const contentLines: string[] = [];
-				while (j < lines.length && lines[j]?.trim() !== "---") {
-					const line = lines[j];
-					if (typeof line === "string") contentLines.push(line);
+
+				while (j < lines.length) {
+					const nextLine = lines[j]?.trim();
+					// 如果遇到下一个 Header，停止收集内容
+					if (
+						nextLine &&
+						nextLine.startsWith("-- ") &&
+						nextLine.endsWith(" --")
+					) {
+						break;
+					}
+
+					// ✅ 修复：推入内容前确保 line 是 string 类型
+					const currentContentLine = lines[j];
+					if (typeof currentContentLine === "string") {
+						contentLines.push(currentContentLine);
+					}
 					j++;
 				}
+
+				// 【处理结尾空行逻辑】：
+				// 按照你的要求，移除内容数组末尾的最后一个空行
+				// 我们先 join，再检查末尾
+				let content = contentLines.join("\n");
+				if (content.endsWith("\n")) {
+					content = content.slice(0, -1);
+				}
+
 				cards.push({
 					startLine,
 					endLine: j,
 					timestamp,
-					content: contentLines.join("\n"),
+					// 这里建议使用 trimEnd() 移除结尾多余空行，
+					// 但保留开头的空格（如果用户故意输入的话）
+					content: content.trimEnd(),
 				});
+
 				i = j - 1;
 			}
 		}
@@ -118,17 +147,59 @@ export class ReviewManager {
 			normalizePath(this.settings.storagePath),
 		);
 		if (!(file instanceof TFile)) return;
+
 		const text = await this.app.vault.read(file);
+		// 统一处理换行符，防止物理行匹配失败
 		const lines = text.replace(/\r/g, "").split("\n");
-		const newBlock = ["---", `-- ${card.timestamp}`, newContent, ""];
-		lines.splice(
-			card.startLine,
-			card.endLine - card.startLine,
-			...newBlock,
-		);
+
+		const targetHeader = `-- ${card.timestamp} --`;
+		let realStartLine = -1;
+		let realEndLine = -1;
+
+		// 【修复】：直接匹配目标 Header，不再寻找旧的 "---"
+		for (let i = 0; i < lines.length; i++) {
+			const currentLine = lines[i]?.trim();
+
+			if (currentLine === targetHeader) {
+				realStartLine = i;
+				let j = i + 1;
+
+				// 寻找块的终点：直到遇到下一个卡片头或文件末尾
+				while (j < lines.length) {
+					const nextLine = lines[j]?.trim();
+					if (
+						nextLine &&
+						nextLine.startsWith("-- ") &&
+						nextLine.endsWith(" --")
+					) {
+						break;
+					}
+					j++;
+				}
+				realEndLine = j;
+				break;
+			}
+		}
+
+		if (realStartLine === -1) {
+			console.error("DEBUG: Failed to locate card!");
+			console.log("Looking for:", `"${targetHeader}"`);
+			new Notice("❌ 无法在文件中定位此卡片，可能已被手动修改");
+			return;
+		}
+
+		// 【结构对齐】：Header + 内容 + 尾随空行
+		// 使用 trim() 确保内容干净，防止空行无限堆叠
+		const newBlock = [targetHeader, ...newContent.trim().split("\n"), ""];
+
+		// 执行物理替换
+		lines.splice(realStartLine, realEndLine - realStartLine, ...newBlock);
+
 		await this.app.vault.modify(file, lines.join("\n"));
-		new Notice("✅ 保存成功");
-		card.content = newContent;
+		new Notice(" ✅ 保存成功 ");
+
+		// 同步内存
+		card.content = newContent.trim();
 	}
 }
 
@@ -188,7 +259,7 @@ class ReviewModal extends Modal {
 			cls: "fleeting-title",
 		});
 		header.createEl("span", {
-			text: "Ctrl+J Next | Ctrl+K Prev | Ctrl+S Save", 
+			text: "Ctrl+J Next | Ctrl+K Prev | Ctrl+S Save",
 			attr: { style: "font-size: 0.75em; color: var(--text-muted);" },
 		});
 
@@ -258,39 +329,6 @@ class ReviewModal extends Modal {
 				view.editor.focus();
 			}
 
-			// @ts-ignore 检查 Vim
-			if (this.app.vault.getConfig("vimMode")) {
-				if (this.vimTimeout) window.clearTimeout(this.vimTimeout);
-
-				this.vimTimeout = window.setTimeout(() => {
-					// 2. 暴力事件：构造并派发原生键盘事件
-					const target = cmContent || view.containerEl;
-					const keyEventOpts = {
-						key: "a",
-						keyCode: 65,
-						code: "KeyA",
-						which: 65,
-						bubbles: true,
-						cancelable: true,
-					};
-
-					// 依次触发 keydown 和 keypress，这是模拟输入最稳妥的组合
-					target.dispatchEvent(
-						new KeyboardEvent("keydown", keyEventOpts),
-					);
-					target.dispatchEvent(
-						new KeyboardEvent("keypress", keyEventOpts),
-					);
-
-					this.vimTimeout = null;
-				}, 1); // 严格满足 1ms 要求
-			}
-
-			const line = view.editor.lineCount() - 1;
-			view.editor.setCursor({
-				line,
-				ch: view.editor.getLine(line).length,
-			});
 			this.app.workspace.trigger("layout-change");
 		});
 	}
@@ -314,44 +352,44 @@ class ReviewModal extends Modal {
 	}
 
 	async onClose() {
-	if (this.vimTimeout) {
-		window.clearTimeout(this.vimTimeout);
-		this.vimTimeout = null;
-	}
-
-	// 1. 先销毁叶子，解除编辑器对文件的占用
-	if (this.activeLeaf) {
-		this.activeLeaf.detach();
-		this.activeLeaf = null;
-	}
-
-	// 2. 给 Obsidian 一点时间释放文件
-	await new Promise((resolve) => setTimeout(resolve, 500));
-
-	// 3. 再清空文件
-	try {
-		const bufferFile = this.app.vault.getAbstractFileByPath(
-			normalizePath(this.tempFilePath),
-		);
-		if (bufferFile instanceof TFile) {
-			await this.app.vault.modify(bufferFile, "");
-			console.log("Buffer file cleared");
+		if (this.vimTimeout) {
+			window.clearTimeout(this.vimTimeout);
+			this.vimTimeout = null;
 		}
-	} catch (e) {
-		console.error("Failed to clear buffer:", e);
-	}
 
-	this.contentEl.empty();
-	
-	// 4. 直接通知 manager 清理状态
-	if (this.manager) {
-		// 需要在 ReviewModal 中保存 manager 引用
-		(this.manager as any).modal = null;
-		(this.manager as any).strategy = null;
+		// 1. 先销毁叶子，解除编辑器对文件的占用
+		if (this.activeLeaf) {
+			this.activeLeaf.detach();
+			this.activeLeaf = null;
+		}
+
+		// 2. 给 Obsidian 一点时间释放文件
+		await new Promise((resolve) => setTimeout(resolve, 500));
+
+		// 3. 再清空文件
+		try {
+			const bufferFile = this.app.vault.getAbstractFileByPath(
+				normalizePath(this.tempFilePath),
+			);
+			if (bufferFile instanceof TFile) {
+				await this.app.vault.modify(bufferFile, "");
+				console.log("Buffer file cleared");
+			}
+		} catch (e) {
+			console.error("Failed to clear buffer:", e);
+		}
+
+		this.contentEl.empty();
+
+		// 4. 直接通知 manager 清理状态
+		if (this.manager) {
+			// 需要在 ReviewModal 中保存 manager 引用
+			(this.manager as any).modal = null;
+			(this.manager as any).strategy = null;
+		}
+
+		super.onClose();
 	}
-	
-	super.onClose();
-}
 }
 
 class ReviewStrategy {
