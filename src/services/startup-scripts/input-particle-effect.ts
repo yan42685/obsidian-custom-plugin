@@ -10,7 +10,7 @@ interface Particle {
   life: number;
 }
 
-export class ParticleEffect {
+export class InputParticleEffect {
   private canvas!: HTMLCanvasElement;
   private ctx!: CanvasRenderingContext2D;
   private particles: Particle[] = [];

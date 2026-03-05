@@ -8,7 +8,8 @@ import { FleetingModal } from "services/fleeting-thoughts/input-modal";
 import { ReviewManager } from "services/fleeting-thoughts/review-manager";
 import { HandyUtilities } from "services/handy-utilities/handy-utilities";
 import { SimpleSidebarManager } from "services/sidebar-manager.ts/simple-sidebar-manager";
-import { ParticleEffect } from "services/startup-scripts/input-particle-effect";
+import { DeleteParticleEffect } from "services/startup-scripts/delete-particle-effect";
+import { InputParticleEffect } from "services/startup-scripts/input-particle-effect";
 import { MarkmapManager } from "services/startup-scripts/startsup-scripts";
 import {
 	DEFAULT_SETTINGS,
@@ -20,7 +21,7 @@ export default class MyPlugin extends Plugin {
 	settings: MyPluginSettings;
 	reviewManager: ReviewManager;
 	sidebarManager: SimpleSidebarManager;
-	particleEffect: ParticleEffect;
+	inputParticleEffect: InputParticleEffect;
 
 	async onload() {
 		await this.loadSettings();
@@ -32,17 +33,19 @@ export default class MyPlugin extends Plugin {
 		this.sidebarManager = new SimpleSidebarManager(this);	
 
 		// 打字粒子效果
-		this.particleEffect = new ParticleEffect();
+		this.inputParticleEffect = new InputParticleEffect();
 
         // 注册编辑器扩展
         this.registerEditorExtension(
             EditorView.updateListener.of((update: ViewUpdate) => {
                 // 只有当文档改变（输入文字）时才触发
                 if (update.docChanged && update.transactions.some(tr => tr.isUserEvent("input"))) {
-                    this.particleEffect.spawn(update.view);
+                    this.inputParticleEffect.spawn(update.view);
                 }
             })
         );
+		// 删除文字的物理特效
+		DeleteParticleEffect.setup(this);
 
 		this.addCommand({
 			id: "input-fleeting-thoughts",
@@ -63,7 +66,9 @@ export default class MyPlugin extends Plugin {
 
 
 	onunload(): void {
-		this.particleEffect.destroy();
+		this.inputParticleEffect.destroy();
+		DeleteParticleEffect.getInstance().destroy();
+
 	}
 
 
