@@ -11,6 +11,9 @@ importers:
       obsidian:
         specifier: latest
         version: 1.11.0(@codemirror/state@6.5.4)(@codemirror/view@6.39.16)
+      rgbquant:
+        specifier: ^1.1.2
+        version: 1.1.2
       upng-js:
         specifier: ^2.1.0
         version: 2.1.0
@@ -1234,6 +1237,9 @@ packages:
   reusify@1.1.0:
     resolution: {integrity: sha512-g6QUff04oZpHs0eG5p83rFLhHeV00ug/Yf9nZM6fLeUrPguBTkTQOdpAWWspMh55TZfVQDPaN3NQJfbVRAxdIw==}
     engines: {iojs: '>=1.0.0', node: '>=0.10.0'}
+
+  rgbquant@1.1.2:
+    resolution: {integrity: sha512-AGuKVeUUFW5rhm4Eu/7SXQRSxs3MoXIGKP4i/5Rok89QBrOu9+ytWezuxHhCsHT9Y6z+sGPKL9PKo6X8tZNUaw==}
 
   run-parallel@1.2.0:
     resolution: {integrity: sha512-5l4VyZR86LZ/lDxZTR6jqL8AFE2S0IFLMP26AbjsLVADxHdhB/c0GUsH+y39UfCi3dzz8OlQuPmnaJOMoDHQBA==}
@@ -2836,6 +2842,8 @@ snapshots:
   ret@0.1.15: {}
 
   reusify@1.1.0: {}
+
+  rgbquant@1.1.2: {}
 
   run-parallel@1.2.0:
     dependencies:

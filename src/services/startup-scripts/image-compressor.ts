@@ -1,4 +1,3 @@
-// @ts-nocheck
 import {
     MarkdownView,
     moment,
@@ -7,6 +6,7 @@ import {
     Plugin,
     TFile,
 } from "obsidian";
+// @ts-ignore
 import RgbQuant from "rgbquant"; // npm install rgbquant（纯JS ~10KB，无WASM，总依赖远<90KB）
 import * as UPNG from "upng-js";
 
