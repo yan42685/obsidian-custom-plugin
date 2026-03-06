@@ -37,7 +37,8 @@
 	},
 	"dependencies": {
 		"obsidian": "latest",
-		"upng-js": "^2.1.0"
+		"upng-js": "^2.1.0",
+		"rgbquant": "^1.1.2"
 	},
 	"packageManager": "pnpm@10.20.0"
 }
