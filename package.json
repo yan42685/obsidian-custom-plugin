@@ -11,7 +11,8 @@
 		"lint": "node scripts/lint-wrapper.mjs",
 		"lint:fix": "node scripts/lint-wrapper.mjs --fix",
 		"version": "node version-bump.mjs && git add manifest.json versions.json",
-		"upgrade": "node scripts/upgrade.mjs"
+		"upgrade": "node scripts/upgrade.mjs",
+		"release": "node release-script.mjs"
 	},
 	"author": "",
 	"license": "MIT",
