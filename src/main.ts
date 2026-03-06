@@ -10,6 +10,7 @@ import { HandyUtilities } from "services/handy-utilities/handy-utilities";
 import { TimerManager } from "services/handy-utilities/timer";
 import { SimpleSidebarManager } from "services/sidebar-manager.ts/simple-sidebar-manager";
 import { DeleteParticleEffect } from "services/startup-scripts/delete-particle-effect";
+import { ImageCompressor } from "services/startup-scripts/image-compressor";
 import { InputParticleEffect } from "services/startup-scripts/input-particle-effect";
 import { MarkmapManager } from "services/startup-scripts/startsup-scripts";
 import {
@@ -70,6 +71,8 @@ export default class MyPlugin extends Plugin {
 
 		// 计时器与番茄钟
 		this.timerManager = new TimerManager(this);
+		// 自动压缩图片
+		new ImageCompressor(this).setup();
 
 		console.log("Custom Plugin loaded successfully.");
 	}
