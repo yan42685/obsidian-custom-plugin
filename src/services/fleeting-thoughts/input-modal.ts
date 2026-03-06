@@ -1,12 +1,12 @@
 import {
-	App,
-	MarkdownView,
-	Modal,
-	normalizePath,
-	Notice,
-	TFile,
-	TFolder,
-	WorkspaceLeaf,
+    App,
+    MarkdownView,
+    Modal,
+    normalizePath,
+    Notice,
+    TFile,
+    TFolder,
+    WorkspaceLeaf,
 } from "obsidian";
 import { MyPluginSettings } from "settings";
 
@@ -172,10 +172,16 @@ export class FleetingModal extends Modal {
 			`${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ` +
 			`${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
-		// 关键修复：去掉时间戳后的 \n\n，让正文紧跟时间
-		const finalEntry = `-- ${dateStr} --\n${content.trim()}\n\n`;
+		const targetFile = this.app.vault.getAbstractFileByPath(targetPath);
 
-		let targetFile = this.app.vault.getAbstractFileByPath(targetPath);
+		// 如果文件存在且有内容，前缀两个换行符（形成一个空行间隔）；否则不加
+		const prefix =
+			targetFile instanceof TFile && targetFile.stat.size > 0
+				? "\n\n"
+				: "";
+
+		const finalEntry = `${prefix}-- ${dateStr} --\n${content.trim()}`;
+
 		try {
 			if (targetFile instanceof TFile) {
 				await this.app.vault.append(targetFile, finalEntry);
