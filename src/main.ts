@@ -6,6 +6,7 @@ import {
 } from "obsidian";
 import { FleetingModal } from "services/fleeting-thoughts/input-modal";
 import { ReviewManager } from "services/fleeting-thoughts/review-manager";
+import { CopyBlockLinkManager } from "services/handy-utilities/copy-block-link";
 import { HandyUtilities } from "services/handy-utilities/handy-utilities";
 import { TimerManager } from "services/handy-utilities/timer";
 import { SimpleSidebarManager } from "services/sidebar-manager.ts/simple-sidebar-manager";
@@ -73,6 +74,7 @@ export default class MyPlugin extends Plugin {
 		this.timerManager = new TimerManager(this);
 		// 自动压缩图片
 		new ImageCompressor(this).setup();
+		new CopyBlockLinkManager(this).init();
 
 		console.log("Custom Plugin loaded successfully.");
 	}
