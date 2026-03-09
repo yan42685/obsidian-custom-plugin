@@ -13,7 +13,7 @@ import { SimpleSidebarManager } from "services/sidebar-manager.ts/simple-sidebar
 import { DeleteParticleEffect } from "services/startup-scripts/delete-particle-effect";
 import { ImageCompressor } from "services/startup-scripts/image-compressor";
 import { InputParticleEffect } from "services/startup-scripts/input-particle-effect";
-import { MarkmapManager } from "services/startup-scripts/startsup-scripts";
+import { StartupManager } from "services/startup-scripts/startsup-scripts";
 import {
 	DEFAULT_SETTINGS,
 	MyPluginSettings,
@@ -26,6 +26,7 @@ export default class MyPlugin extends Plugin {
 	sidebarManager: SimpleSidebarManager;
 	inputParticleEffect: InputParticleEffect;
 	timerManager: TimerManager;
+	startupManager: StartupManager;
 
 	async onload() {
 		await this.loadSettings();
@@ -33,10 +34,11 @@ export default class MyPlugin extends Plugin {
 		this.addSettingTab(new MyPluginSettingTab(this.app, this));
 		// ========================
 
+		this.startupManager = new StartupManager(this);
+		this.startupManager.init();
 
 		this.reviewManager = new ReviewManager(this.app, this.settings);
 		new HandyUtilities(this).registerAllCommands();
-		new MarkmapManager();
 		this.sidebarManager = new SimpleSidebarManager(this);	
 
 		// 打字粒子效果

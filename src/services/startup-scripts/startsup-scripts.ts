@@ -1,4 +1,37 @@
-import { Notice } from "obsidian";
+import { Notice, Plugin } from "obsidian";
+
+export class StartupManager {
+	private plugin: Plugin;
+
+	constructor(plugin: Plugin) {
+		this.plugin = plugin;
+	}
+
+	public init(): void {
+		// 1. 初始化 Markmap 增强功能
+		new MarkmapManager();
+
+		// 2. 执行启动布局聚焦逻辑
+		this.plugin.app.workspace.onLayoutReady(() => {
+			this.focusFirstPinnedTab();
+		});
+	}
+
+	// 自动聚焦pin的tab
+	private focusFirstPinnedTab(): void {
+		let firstPinnedLeaf: any = null;
+		this.plugin.app.workspace.iterateAllLeaves((leaf) => {
+			if (firstPinnedLeaf) return;
+			if (leaf.getViewState().pinned) {
+				firstPinnedLeaf = leaf;
+			}
+		});
+
+		if (firstPinnedLeaf) {
+			this.plugin.app.workspace.setActiveLeaf(firstPinnedLeaf, { focus: true });
+		}
+	}
+}
 
 // 让 anyblock支持的 list2markmap 出现全屏按钮
 export class MarkmapManager {
