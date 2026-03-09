@@ -1,4 +1,4 @@
-import { Notice, Plugin } from "obsidian";
+import { MarkdownView, Notice, Plugin } from "obsidian";
 
 export class StartupManager {
 	private plugin: Plugin;
@@ -9,7 +9,7 @@ export class StartupManager {
 
 	public init(): void {
 		// 1. 初始化 Markmap 增强功能
-		new MarkmapManager();
+		new MarkmapManager(this.plugin);
 
 		// 2. 执行启动布局聚焦逻辑
 		this.plugin.app.workspace.onLayoutReady(() => {
@@ -28,27 +28,87 @@ export class StartupManager {
 		});
 
 		if (firstPinnedLeaf) {
-			this.plugin.app.workspace.setActiveLeaf(firstPinnedLeaf, { focus: true });
+			this.plugin.app.workspace.setActiveLeaf(firstPinnedLeaf, {
+				focus: true,
+			});
 		}
 	}
 }
 
 // 让 anyblock支持的 list2markmap 出现全屏按钮
+
 export class MarkmapManager {
-	// 默认配置直接固化
 	private readonly config = {
-		removeOldButtons: true,
-		autoFit: true,
-		exitOnAnyKey: true,
 		styleId: "mm-full-style",
+		自毁时间: 5000,
 	};
 
-	constructor() {
-		// 实例化即运行
+	constructor(private plugin: Plugin) {
 		this.injectCSS();
-		this.bindGlobalEvents();
-		// 初始扫描当前 DOM 中已存在的 Markmap
-		this.scanAndInject();
+		this.initLogic();
+	}
+
+	private initLogic(): void {
+		const onAni = (e: AnimationEvent): void => {
+			if (e.animationName === "mmReady") {
+				this.inject(e.target as SVGElement);
+			}
+		};
+
+		this.plugin.registerDomEvent(
+			document,
+			"animationstart",
+			onAni as EventListener,
+			{ capture: true },
+		);
+
+		this.plugin.registerDomEvent(
+			document,
+			"keydown",
+			(e: KeyboardEvent) => {
+				if (
+					document.fullscreenElement &&
+					!["Control", "Alt", "Shift", "Meta"].includes(e.key)
+				) {
+					void document.exitFullscreen();
+				}
+			},
+			{ capture: true },
+		);
+
+		// 优化点：启动时根据布局状态决定扫描策略
+		if (this.plugin.app.workspace.layoutReady) {
+			this.scanActiveViewOnly();
+		} else {
+			this.plugin.app.workspace.onLayoutReady(() =>
+				this.scanActiveViewOnly(),
+			);
+		}
+
+		setTimeout(() => {
+			document.removeEventListener(
+				"animationstart",
+				onAni as EventListener,
+				{ capture: true },
+			);
+			console.log("[MarkmapManager] 动态监听已自毁");
+		}, this.config.自毁时间);
+	}
+
+	/**
+	 * 核心优化：仅扫描当前活动的 Markdown 视图
+	 */
+	private scanActiveViewOnly(): void {
+		const activeView =
+			this.plugin.app.workspace.getActiveViewOfType(MarkdownView);
+		if (activeView) {
+			// 仅在当前视图的内容元素（contentEl）中查找
+			activeView.contentEl
+				.querySelectorAll("svg.ab-markmap-svg")
+				.forEach((el) => {
+					this.inject(el as SVGElement);
+				});
+		}
 	}
 
 	private injectCSS(): void {
@@ -82,33 +142,13 @@ export class MarkmapManager {
 		document.head.appendChild(style);
 	}
 
-	private scanAndInject(): void {
-		document.querySelectorAll("svg.ab-markmap-svg").forEach((el) => {
-			this.inject(el as SVGElement);
-		});
-	}
-
-	private fit(svg: SVGElement): void {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const mm = (svg as any).instance || (svg as any).__markmap;
-		if (mm && typeof mm.fit === "function") {
-			mm.fit();
-		} else {
-			svg.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-		}
-	}
-
-	private removeOld(svg: SVGElement): void {
-		const targetArea = svg.parentElement?.parentElement?.parentElement;
-		if (targetArea) {
-			const btns = targetArea.querySelectorAll(".ab-button");
-			btns.forEach((btn) => btn.remove());
-		}
-	}
-
 	private inject(svg: SVGElement): void {
 		if (svg.parentElement?.classList.contains("mm-full-wrapper")) return;
-		this.removeOld(svg);
+
+		const targetArea = svg.parentElement?.parentElement?.parentElement;
+		targetArea
+			?.querySelectorAll(".ab-button")
+			.forEach((btn) => btn.remove());
 
 		const wrapper = document.createElement("div");
 		wrapper.className = "mm-full-wrapper";
@@ -124,41 +164,21 @@ export class MarkmapManager {
 			if (!document.fullscreenElement) {
 				try {
 					await wrapper.requestFullscreen();
-					setTimeout(() => this.fit(svg), 400);
+					setTimeout(() => {
+						const mm =
+							(svg as any).instance || (svg as any).__markmap;
+						mm?.fit?.() ||
+							svg.dispatchEvent(
+								new MouseEvent("dblclick", { bubbles: true }),
+							);
+					}, 400);
 				} catch {
 					new Notice("无法进入全屏模式");
 				}
 			} else {
-				if (document.exitFullscreen) void document.exitFullscreen();
-			}
-		};
-		wrapper.appendChild(btn);
-	}
-
-	private bindGlobalEvents(): void {
-		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const onAni = (e: any): void => {
-			if (e.animationName === "mmReady") {
-				this.inject(e.target as SVGElement);
-			}
-		};
-
-		document.addEventListener("animationstart", onAni, { capture: true });
-
-		const onKey = (e: KeyboardEvent): void => {
-			if (
-				document.fullscreenElement &&
-				!["Control", "Alt", "Shift", "Meta"].includes(e.key)
-			) {
 				void document.exitFullscreen();
 			}
 		};
-		document.addEventListener("keydown", onKey, { capture: true });
-
-		// 5秒后停止监听新生成的动画，防止长期占用资源
-		setTimeout(() => {
-			document.removeEventListener("animationstart", onAni);
-			console.log("[MarkmapManager] 动态监听已自毁");
-		}, 5000);
+		wrapper.appendChild(btn);
 	}
 }
