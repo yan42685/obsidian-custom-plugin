@@ -71,8 +71,19 @@ export class DeleteParticleEffect {
 				update.changes.iterChanges((fromA, toA, fromB, toB) => {
 					// toA > fromA 说明旧文档中有内容被删除了
 					if (toA > fromA) {
-						const view = update.view;
 						const charCount = toA - fromA;
+
+						/**
+						 * 自动化过滤逻辑：
+						 * 1. 如果是单次大规模删除 (>10字符)，通常是选中删除或块删除，触发大爆炸。
+						 * 2. 如果是连续极速删除（Espanso 一个一个退格），通过时间戳过滤。
+						 */
+						const timeDiff = now - (this as any).lastShatterTime;
+						(this as any).lastShatterTime = now;
+
+						// 如果两次删除间隔小于 10ms，且字符数很小，判定为自动化回退，直接跳过
+						if (timeDiff < 10 && charCount < 2) return;
+						const view = update.view;
 						const isLarge = charCount > 1;
 
 						// 关键点：在删除发生后，fromA 是依然存在的（或指向删除后的新位置）
