@@ -52,45 +52,50 @@ export class DeleteParticleEffect {
 		registerEditorExtension: (ext: any) => void;
 	}): void {
 		const engine = this.getInstance();
+		// 初始化一个内部时间戳记录器（如果类里没定义，可以挂在实例上）
+		(engine as any).lastShatterTime = 0;
 
 		plugin.registerEditorExtension(
 			EditorView.updateListener.of((update: ViewUpdate) => {
 				if (!update.docChanged) return;
 
-				// 如果是通过 view.editor.setValue() 或程序逻辑修改的，通常没有 userEvent 标注
-				// 举例：review cards 时切换 card 不应该触发删除粒子特效
+				// 1. 获取当前时间
+				const now = Date.now();
+
+				// 2. 判定是否为用户触发的事务
 				const isUserAction = update.transactions.some(
 					(tr) =>
 						tr.isUserEvent("delete") ||
 						tr.isUserEvent("input") ||
-						tr.isUserEvent("move") ||
-						tr.annotation(Transaction.userEvent) !== undefined,
+						tr.isUserEvent("move"),
 				);
 				if (!isUserAction) return;
 
 				update.changes.iterChanges((fromA, toA, fromB, toB) => {
-					// toA > fromA 说明旧文档中有内容被删除了
+					// toA > fromA 表示内容减少（删除）
 					if (toA > fromA) {
 						const charCount = toA - fromA;
 
+						// --- 自动化过滤逻辑核心 ---
+						const lastTime = (engine as any).lastShatterTime;
+						const timeDiff = now - lastTime;
+						(engine as any).lastShatterTime = now;
+
 						/**
-						 * 自动化过滤逻辑：
-						 * 1. 如果是单次大规模删除 (>10字符)，通常是选中删除或块删除，触发大爆炸。
-						 * 2. 如果是连续极速删除（Espanso 一个一个退格），通过时间戳过滤。
+						 * 判定策略：
+						 * 如果间隔极短 (< 15ms) 且删除字符数很少 (1个字符)
+						 * 这种情况 99% 是 Espanso 在执行自动退格（Backspace * N）
+						 * 我们直接跳过，不喷发粒子
 						 */
-						const timeDiff = now - (this as any).lastShatterTime;
-						(this as any).lastShatterTime = now;
+						if (timeDiff < 15 && charCount === 1) {
+							return;
+						}
 
-						// 如果两次删除间隔小于 10ms，且字符数很小，判定为自动化回退，直接跳过
-						if (timeDiff < 10 && charCount < 2) return;
 						const view = update.view;
-						const isLarge = charCount > 1;
+						// 特效判定：删除超过 5 个字符视为“大爆炸”
+						const isLarge = charCount > 5;
 
-						// 关键点：在删除发生后，fromA 是依然存在的（或指向删除后的新位置）
-						// 我们尝试获取这个位置的坐标
 						let coords = view.coordsAtPos(fromA);
-
-						// 兜底：如果 coords 为空（在 Modal 中偶尔发生），尝试获取当前光标位置
 						if (!coords) {
 							coords = view.coordsAtPos(
 								view.state.selection.main.head,
@@ -99,9 +104,6 @@ export class DeleteParticleEffect {
 
 						if (coords) {
 							if (isLarge) {
-								// 【大段删除逻辑修复】
-								// 由于内容已消失，我们无法得知原选区的精确宽度
-								// 策略：以删除点为中心，根据删除字符数模拟一个爆炸区域
 								const estimatedWidth = Math.min(
 									view.contentDOM.clientWidth / 2,
 									charCount * 4,
@@ -117,7 +119,7 @@ export class DeleteParticleEffect {
 								};
 								engine.shatter(rect, true, charCount);
 							} else {
-								// 单字删除
+								// 单字或小规模删除
 								const rect: Rect = {
 									left: coords.left,
 									top: coords.top,
