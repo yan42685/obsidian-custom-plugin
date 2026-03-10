@@ -20,19 +20,16 @@ class SpaceWidget extends WidgetType {
 
 	toDOM = () => {
 		const span = document.createElement("span");
-		// 关键修正：添加 vertical-align 和 line-height，并明确设置宽度
-		// 增加 overflow: hidden 确保它不会被光标层误捕获
+		// 关键：移除 height, overflow, vertical-align: middle
+		// 使用基准线对齐，并确保它不占用高度
 		span.style.cssText = `
-        display: inline-block; 
-        width: 0.25em; 
-        height: 1em;
-        vertical-align: middle;
-        pointer-events: none; 
-        user-select: none;
-        overflow: hidden;
-        background: transparent !important;
-    `;
-		span.className = "cm-pangu-gap"; // 增加一个类名
+            display: inline-block;
+            width: 0.25em;
+            vertical-align: baseline;
+            pointer-events: none;
+            user-select: none;
+            background: transparent !important;
+        `;
 		span.setAttribute("data-type", "virtual-gap");
 		return span;
 	};
@@ -107,7 +104,7 @@ export class AutoFormatting {
 						pos,
 						Decoration.widget({
 							widget: new SpaceWidget(),
-							side: 1, // 确保间距逻辑挂载在右侧字符上
+							side: -1, // 关键修复：改为 -1，让间距“属于”左边的字符
 						}),
 					);
 				}
