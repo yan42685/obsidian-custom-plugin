@@ -1,4 +1,5 @@
 import { Notice, Plugin } from "obsidian";
+import { AutoFormatting } from "./auto-formatting";
 
 export class StartupManager {
 	private plugin: Plugin;
@@ -15,6 +16,8 @@ export class StartupManager {
 		this.plugin.app.workspace.onLayoutReady(() => {
 			this.focusFirstPinnedTab();
 		});
+
+		this.plugin.registerEditorExtension(AutoFormatting.init());
 	}
 
 	// 自动聚焦pin的tab
